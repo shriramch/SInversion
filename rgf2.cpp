@@ -109,9 +109,9 @@ void rgf2sided(Matrix &A, bool sym_mat = false, bool save_off_diag = true,
 
         MPI_Recv((void *)G.mdiag, nblocks_2 * n * n, MPI_FLOAT, 1, 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv((void *)G.mdiag, nblocks_2 * n * n, MPI_FLOAT, 1, 1,
+        MPI_Recv((void *)G.updiag, nblocks_2 * n * n, MPI_FLOAT, 1, 1,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-        MPI_Recv((void *)G.mdiag, nblocks_2 * n * n, MPI_FLOAT, 1, 2,
+        MPI_Recv((void *)G.lodiag, nblocks_2 * n * n, MPI_FLOAT, 1, 2,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     } else if (process_rank == 1) {
