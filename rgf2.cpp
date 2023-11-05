@@ -145,3 +145,41 @@ void rgf2sided_lowerprocess(Matrix &A, bool sym_mat = false,
 //     m.convert3D(1);
 //     m.printB();
 // }
+
+void Matrix::MMM_BLAS(int n, float *A, float *B, float *result) {
+    const CBLAS_ORDER order = CblasRowMajor;
+    const CBLAS_TRANSPOSE transA = CblasNoTrans;
+    const CBLAS_TRANSPOSE transB = CblasNoTrans;
+    const float alpha = 1.0;
+    const float beta = 0.0;
+
+    cblas_sgemm(order, transA, transB, n, n, n, alpha, A, n, B, n, beta, result, n);
+}
+
+void Matrix::MMM_noob(int n, float *A, float *B, float *result) {
+  
+    float *res_temp = (float *)malloc(n * n * sizeof(float));
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            for (int k = 0; k < n; ++k) {
+            res_temp[i * n + j] += A[i * n + k] * B[k * n + j];
+            }
+        }
+    }
+    memcpy(result, res_temp, n * n * sizeof(float));
+    free(res_temp);
+
+}
+
+void Matrix::mat_INV(int n, const float *A, float *result) {
+
+    int *ipiv = (int *)malloc(n * sizeof(int));
+    memcpy(result, A, n * n * sizeof(float));
+
+    LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, result, n, ipiv);
+
+    LAPACKE_sgetri(LAPACK_ROW_MAJOR, n, result, n, ipiv);
+
+    free(ipiv);
+}

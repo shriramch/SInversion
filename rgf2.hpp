@@ -1,5 +1,7 @@
 #include <bits/stdc++.h>
 #include <mpi.h>
+#include <cblas.h>
+#include <lapacke.h>
 
 using namespace std;
 
@@ -16,7 +18,7 @@ public:
     void printM();
     void printB();
     void get(int &, int &);
+    void MMM_BLAS(int , float *, float *, float *);
+    void MMM_noob(int , float *, float *, float *);
+    void mat_INV(int n, const float *A, float *result);
 };
-
-void MMM(float *A, float *B, float *C);
-void MI(float *A, float *Ai);
