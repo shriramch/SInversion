@@ -1,15 +1,16 @@
 #include "argparse.h"
 #include "matrices_utils.hpp"
-#include "rgf2.hpp"
 #include "rgf1.hpp"
-#ifdef ENABLE_LIBLSB
+#include "rgf2.hpp"
+
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
 #include "liblsb.h"
 #endif
 
-#include <stdio.h>
 #include <cmath>
 #include <functional>
 #include <iostream>
+#include <stdio.h>
 #include <vector>
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -102,10 +103,10 @@ int main(int argc, const char *argv[]) {
     const char *bin_name = argv[0];
     int processRank;
     MPI_Init(&argc, (char ***)(&argv));
-    #ifdef ENABLE_LIBLSB
-    LSB_Init("DPHPC Project", 0);
-    #endif
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
+    LSB_Init("DPHPC Project", 0);
+#endif
     // parse options
     Config config;
     InitOptions(&config);
@@ -125,14 +126,18 @@ int main(int argc, const char *argv[]) {
 
         // Vector of algorithm functions and their names
         std::vector<std::pair<AlgorithmFunction, std::string>> algorithms = {
-            #ifdef ENABLE_LIBLSB
+#ifdef ENABLE_LIBLSB1
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"}
-            #else
+#elif ENABLE_LIBLSB2
+            {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
+#else
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
-            #endif
+#endif
             // Add more algorithms as needed
         };
+
+        // std::cout << processRank << std::endl;
 
         Matrix inputMatrix =
             generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
@@ -143,11 +148,10 @@ int main(int argc, const char *argv[]) {
         float *base_inv = new float[MATRIX_SIZE * MATRIX_SIZE]();
         inputMatrix.invBLAS(MATRIX_SIZE, inputMatrix.getMat(), base_inv);
         Matrix baseResultMatrix(MATRIX_SIZE, base_inv);
-        baseResultMatrix.convertDenseToBlkTridiag(config.blockSize);
-
+        baseResultMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
+#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2
         // precision is low; the larger the matrix , the lower the precision
         // compare it to the blas inv result to test the correctness
-        int index = 1;
         for (const auto &algorithm : algorithms) {
             Matrix tempResult(
                 MATRIX_SIZE); // zero initialization, same shape as inputMatrix
@@ -161,52 +165,57 @@ int main(int argc, const char *argv[]) {
                               << algorithm.second << std::endl;
                     return -1;
                 }
-                printf("rgf algorithm %d test passed!\n", index); 
+                std::cout << algorithm.second << " test passed!" << std::endl;
             }
-            ++index;
         }
+#endif
+
         // Run all the functions for x times and measure the time
         // create just a single output, as i have already checked correctness,
         // now just need the timing of multiple runs
 
-        Matrix tempResult(
-            MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-        tempResult.convertDenseToBlkTridiag(
-            4); // G has same blockSize as in inputMatrix
-        
-        // Need to configure libLSB Benchmark for running rgf2-sided
-        #ifdef ENABLE_LIBLSB
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
         for (const auto &algorithm : algorithms) {
             for (int i = 0; i < NUM_RUNS; ++i) {
+                Matrix tempResult(MATRIX_SIZE); // zero initialization, same
+                                                // shape as inputMatrix
+                tempResult.convertDenseToBlkTridiag(
+                    BLOCK_SIZE); // G has same blockSize as in inputMatrix
                 LSB_Res();
                 // Run the algorithm
                 algorithm.first(inputMatrix, tempResult, MATRIX_SIZE,
                                 BLOCK_SIZE, IS_SYMMETRIC, SAVE_OFF_DIAG);
                 LSB_Rec(i);
-                
             }
         }
-        #else
-        for (const auto &algorithm : algorithms) {
-            for (int i = 0; i < NUM_RUNS; ++i) {
-                auto start =
-                    clock(); // decide whether to use this or just clock()
-                // Run the algorithm
-                algorithm.first(inputMatrix, tempResult, MATRIX_SIZE,
-                                BLOCK_SIZE, IS_SYMMETRIC, SAVE_OFF_DIAG);
-                auto end = clock();
-                auto duration = MAX(1, (end - start));
-                // Output the time taken for each function
-                if (processRank == 0) {
-                    // write to file or accumulate
-                    // std::cout << algorithm.second << " Time: " << duration <<
-                    // std::endl;
-                }
-            }
-        }
-        #endif
+#else
 
+        // for (const auto &algorithm : algorithms) {
+        //     for (int i = 0; i < NUM_RUNS; ++i) {
 
+        //         Matrix tempResult(MATRIX_SIZE); // zero initialization, same
+        //                                         // shape as inputMatrix
+        //         tempResult.convertDenseToBlkTridiag(
+        //             BLOCK_SIZE); // G has same blockSize as in inputMatrix
+        //         auto start =
+        //             clock(); // decide whether to use this or just clock()
+        //         // Run the algorithm
+        //         algorithm.first(inputMatrix, tempResult, MATRIX_SIZE,
+        //                         BLOCK_SIZE, IS_SYMMETRIC, SAVE_OFF_DIAG);
+        //         auto end = clock();
+        //         auto duration = MAX(1, (end - start));
+
+        //         // Output the time taken for each function
+        //         if (processRank == 0) {
+        //             // write to file or accumulate
+        //             // std::cout << algorithm.second << " Time: " << duration
+        //             <<
+        //             // std::endl;
+        //         }
+        //     }
+        // }
+
+#endif
 
     } else if (processRank == 0) {
         printf("Usage (random mode): mpirun -np 2 %s -m <matrixSize> -b "
@@ -219,9 +228,11 @@ int main(int argc, const char *argv[]) {
                bin_name);
         return 1;
     }
-    #ifdef ENABLE_LIBLSB
+
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
     LSB_Finalize();
-    #endif
+#endif
+
     MPI_Finalize();
     return 0;
 }

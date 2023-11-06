@@ -9,7 +9,7 @@ print: run
 	python3 parse_output.py
 
 run: compile_mpi
-	mpirun -np 2 ./test -m 8 -b 2 -n 10 -s 0 -o 1
+	mpirun -np 2 ./test -m 1024 -b 64 -n 10 -s 0 -o 1
 
 ifeq ($(UNAME), Darwin)
 compile_mpi:
@@ -22,13 +22,20 @@ compile_mpi:
 	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_OTHERS)
 endif
 
-# Keeping libLSB module seprate for now
-CXXFLAGS += -DENABLE_LIBLSB
-compile_lsb:
-	$(MPI) -o test *.cpp $(CXXFLAGS) $(MPI_FLAGS_OTHERS) -llsb
+CXXFLAGS1 = -DENABLE_LIBLSB1
+CXXFLAGS2 = -DENABLE_LIBLSB2
 
-rgf1_test: compile_lsb
-	mpirun -np 1 ./test -m 8 -b 2 -n 10 -s 0 -o 1  > run.txt
+compile_rgf1:
+	$(MPI) -o test *.cpp $(CXXFLAGS1) $(MPI_FLAGS_OTHERS) -llsb
+
+lsb1: compile_rgf1
+	mpirun -np 1 ./test -m 1024 -b 64 -n 10 -s 0 -o 1 > run.txt
+
+compile_rgf2:
+	$(MPI) -o test *.cpp $(CXXFLAGS2) $(MPI_FLAGS_OTHERS) -llsb
+
+lsb2: compile_rgf2
+	mpirun -np 2 ./test -m 1024 -b 64 -n 10 -s 0 -o 1 > run.txt
 
 clean:
 	rm -fR main plot_out/* run.txt

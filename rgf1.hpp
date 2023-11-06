@@ -1,6 +1,6 @@
 #pragma once
+#include "matrices_utils.hpp"
 #include <cblas.h>
 #include <lapacke.h>
-#include "matrices_utils.hpp"
 
 void rgf1sided(Matrix &, Matrix &, bool, bool);
