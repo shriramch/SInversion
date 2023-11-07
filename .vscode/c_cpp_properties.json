@@ -4,7 +4,8 @@
             "name": "Linux",
             "includePath": [
                 "${workspaceFolder}/**",
-                "/usr/include/x86_64-linux-gnu/mpich"
+                "/usr/local/opt/openblas/include",
+                "/usr/local/opt/lapack/include"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",

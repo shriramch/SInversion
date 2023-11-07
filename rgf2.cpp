@@ -115,7 +115,7 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
     int nblocks_2 = nblocks / 2;
 
     if (processRank == 0) {
-        // rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
+        rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
         MPI_Recv((void *)(G.mdiag + nblocks_2 * matrixSize * matrixSize), 
                 (blockSize - nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 1, 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -127,7 +127,7 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     } else if (processRank == 1) {
-        // rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat, save_off_diag);
+        rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat, save_off_diag);
 
         MPI_Send((const void *)(G.mdiag + nblocks_2 * matrixSize * matrixSize),
                  (nblocks - nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
@@ -373,18 +373,27 @@ void Matrix::invBLAS(int n, const float *A, float *result) {
 
 
 int main(int argc, char **argv) {
+    int processRank;
+    
     MPI_Init(&argc, &argv);
-    float *t = new float[16];
-    for (int i = 0; i < 16; ++i) {
-        t[i] = i + 1;
-    }
-    Matrix A(4, t);
-    A.printM();
-    A.convert3D(2);
-    A.printB();
+    MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+    // float *t = new float[16];
+    // for (int i = 0; i < 16; ++i) {
+    //     t[i] = i + 1;
+    // }
+    // Matrix A(4, t);
+    // // A.printM();
+    // A.convert3D(2);
+    // // A.printB();
 
-    Matrix G(4); // zero initialization, same shape as A
-    G.convert3D(2); // G has same blockSize as in A
-    rgf2sided(A, G,false, false);
+    // Matrix G(4); // zero initialization, same shape as A
+    // G.convert3D(2); // G has same blockSize as in A
+    // rgf2sided(A, G,false, false);
+    // if(processRank == 0){
+    //     A.invBLAS(4, A.mat, A.mat);
+    //     A.convert3D(2);
+    //     A.printB();
+    //     G.printB();
+    // }
     MPI_Finalize();
 }
