@@ -167,7 +167,7 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         A.mmmBLAS(blockSize, A_lowerblk_leftprocess + (i-1) * blockSize * blockSize, 
                    G_diagblk_leftprocess + (i-1) * blockSize * blockSize, temp_result_1);
         A.mmmBLAS(blockSize, temp_result_1, A_upperblk_leftprocess + (i-1) * blockSize * blockSize, 
-                   temp_result_1);
+                   temp_result_1); // 
         A.mmSub(blockSize, A_diagblk_leftprocess + i * blockSize * blockSize, temp_result_1, 
                  temp_result_1); 
         A.invBLAS(blockSize, temp_result_1, G_diagblk_leftprocess + i * blockSize * blockSize);
@@ -223,11 +223,15 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
         if (save_off_diag) {
             A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_leftprocess+i*blockSize*blockSize);
-        }
-        else {
-            A.mmmBLAS(blockSize, g_ii, A_upperblk_leftprocess+i*blockSize*blockSize, temp_result_1);
-            A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess+(i+1)*blockSize*blockSize, temp_result_1);
-            A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_leftprocess+i*blockSize*blockSize);
+            if(sym_mat) {
+                // matrix transpose
+                cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (i)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (i)*blockSize*blockSize, blockSize);
+            }
+            else {
+                A.mmmBLAS(blockSize, g_ii, A_upperblk_leftprocess+i*blockSize*blockSize, temp_result_1);
+                A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess+(i+1)*blockSize*blockSize, temp_result_1);
+                A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_leftprocess+i*blockSize*blockSize);
+            }
         }
         A.mmmBLAS(blockSize, g_ii, A_upperblk_leftprocess+i*blockSize*blockSize, temp_result_1);
         A.mmmBLAS(blockSize, temp_result_1, G_lowerfactor, temp_result_1);
@@ -310,16 +314,27 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess, 
                temp_result_1);
 
-    if (sym_mat) {
-        // matrix transpose
-        cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess, blockSize, G_upperblk_rightprocess, blockSize); 
-    }
-    else {
-        A.mmmBLAS(blockSize, G_diagblk_rightprocess, 
-               A_upperblk_rightprocess, 
-               temp_result_1);
-        A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + (1) * blockSize * blockSize, 
-               G_upperblk_rightprocess);
+    for (int i = 1; i < nblocks_2; ++i) {
+        float *g_ii = G_diagblk_rightprocess + (i+1) * blockSize * blockSize;
+        float *G_lowerfactor = new float[blockSize * blockSize];
+        A.mmmBLAS(blockSize, g_ii, A_lowerbk_rightprocess + i * blockSize * blockSize, temp_result_1);
+        A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + i * blockSize * blockSize, G_lowerfactor);
+        if (save_off_diag) {
+            A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_rightprocess + i * blockSize * blockSize);
+            if (sym_mat) {
+                // matrix transpose
+                cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize); 
+            }
+            else {
+                A.mmmBLAS(blockSize, G_diagblk_rightprocess + i*blockSize*blockSize, 
+                    A_upperblk_rightprocess + i*blockSize*blockSize, 
+                    temp_result_1);
+                A.mmmBLAS(blockSize, temp_result_1, g_ii, 
+                    temp_result_1);
+                A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_rightprocess + i * blockSize * blockSize);
+                
+            }
+        }
     }
 
     memcpy(G.mdiag, G_diagblk_rightprocess+1, nblocks_2 * blockSize * blockSize * sizeof(float));
@@ -377,23 +392,24 @@ int main(int argc, char **argv) {
     
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
-    // float *t = new float[16];
-    // for (int i = 0; i < 16; ++i) {
-    //     t[i] = i + 1;
-    // }
-    // Matrix A(4, t);
-    // // A.printM();
-    // A.convert3D(2);
+    float *t = new float[16];
+    for (int i = 0; i < 16; ++i) {
+        t[i] = i + 1;
+    }
+    Matrix A(4, t);
+    // A.printM();
+    A.convert3D(2);
     // // A.printB();
 
-    // Matrix G(4); // zero initialization, same shape as A
-    // G.convert3D(2); // G has same blockSize as in A
-    // rgf2sided(A, G,false, false);
-    // if(processRank == 0){
-    //     A.invBLAS(4, A.mat, A.mat);
-    //     A.convert3D(2);
-    //     A.printB();
-    //     G.printB();
-    // }
+    Matrix G(4); // zero initialization, same shape as A
+    G.convert3D(2); // G has same blockSize as in A
+    rgf2sided(A, G,false, false);
+    if(processRank == 0){
+        // A.invBLAS(4, A.mat, A.mat);
+        // A.convert3D(2);
+        // A.printB();
+        // G.printB();
+        G.printM();
+    }
     MPI_Finalize();
 }
