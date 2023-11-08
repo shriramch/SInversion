@@ -28,8 +28,13 @@ Matrix::Matrix(int N, float *newMat) {
     lodiag = NULL;
 }
 
+// convert back to show the result 
+void convertBlkTridiagToDense() {
+    // TODO
+}
+
 /* Generate 3 representations */
-void Matrix::convert3D(const int blockSize) {
+void Matrix::convertDenseToBlkTridiag(const int blockSize) {
     this->blockSize = blockSize;
     assert(matrixSize % blockSize == 0); // matrixSize must be divisible by blockSize
     int nblocks = matrixSize / blockSize;
@@ -105,6 +110,10 @@ void Matrix::getBlockSizeAndMatrixSize(int &outBlockSize, int &outMatrixSize) {
     outMatrixSize = matrixSize;
 }
 
+float* Matrix::getMat() {
+    return mat;
+}
+
 void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag 
                ) {
     int processRank, blockSize, matrixSize;
@@ -117,18 +126,19 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
     if (processRank == 0) {
         rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
         MPI_Recv((void *)(G.mdiag + nblocks_2 * matrixSize * matrixSize), 
-                (blockSize - nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 1, 0,
+                (nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 1, 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv((void *)(G.updiag + nblocks_2 * matrixSize * matrixSize), 
-                (blockSize - nblocks_2 - 1) * matrixSize * matrixSize, MPI_FLOAT, 1, 1,
+                (nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 1, 1,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         MPI_Recv((void *)(G.lodiag + nblocks_2 * matrixSize * matrixSize), 
-                (blockSize - nblocks_2 - 1) * matrixSize * matrixSize, MPI_FLOAT, 1, 2,
+                (nblocks_2 ) * matrixSize * matrixSize, MPI_FLOAT, 1, 2,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-
+        
     } else if (processRank == 1) {
         rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat, save_off_diag);
-
+        // std::cout << "nblocks: " << nblocks << std::endl;
+        // std::cout << "nblocks_2: " << nblocks_2 << std::endl;
         MPI_Send((const void *)(G.mdiag + nblocks_2 * matrixSize * matrixSize),
                  (nblocks - nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         MPI_Send((const void *)(G.updiag + nblocks_2 * matrixSize * matrixSize),
@@ -242,6 +252,8 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     memcpy(G.updiag, G_upperblk_leftprocess, nblocks_2 * blockSize * blockSize * sizeof(float));
     memcpy(G.lodiag, G_lowerblk_leftprocess, nblocks_2 * blockSize * blockSize * sizeof(float));
     
+    // G.printB();
+
     delete[] G_diagblk_leftprocess;
     delete[] G_upperblk_leftprocess;
     delete[] G_lowerblk_leftprocess;
@@ -392,24 +404,32 @@ int main(int argc, char **argv) {
     
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
-    float *t = new float[16];
-    for (int i = 0; i < 16; ++i) {
-        t[i] = i + 1;
+    float *t = new float[16*16]();
+    for (int i = 0; i < 16 ; ++i) {
+        t[i * 16 + i] = i + 1;
     }
-    Matrix A(4, t);
-    // A.printM();
-    A.convert3D(2);
-    // // A.printB();
+    Matrix A(16, t);
+    A.convertDenseToBlkTridiag(2);
 
-    Matrix G(4); // zero initialization, same shape as A
-    G.convert3D(2); // G has same blockSize as in A
-    rgf2sided(A, G,false, false);
+    Matrix G(16); // zero initialization, same shape as A
+    G.convertDenseToBlkTridiag(2); // G has same blockSize as in A
+    rgf2sided(A, G,false, true);
     if(processRank == 0){
-        // A.invBLAS(4, A.mat, A.mat);
-        // A.convert3D(2);
+        // A.invBLAS(16, A.getMat(), G.getMat());
+        // A.convertDenseToBlkTridiag(2);
         // A.printB();
-        // G.printB();
-        G.printM();
+        G.printB();
+        // A.printM();
+        // G.printM();
     }
     MPI_Finalize();
+    /* from the above test, I use the diagnoal matrix, because it is easy to
+    invert and check the correctness. This means you don't need to invert A 
+    using other method.
+    The result shows that the upper part is ok
+    some error in lower part
+    in order to use G.printM()
+    you need to convert it back (which is not implemented yet)
+    so use G.printB() to check the result.
+    */
 }

@@ -22,12 +22,14 @@ public:
     float *mdiag, *updiag, *lodiag; // indexing: [b][i][j] = b*blockSize*blockSize + i*blockSize + j
     Matrix(int);
     Matrix(int, float *);
-    void convert3D(const int);
+    float* getMat();
+    void convertDenseToBlkTridiag(const int);
+    void convertBlkTridiagToDense();
     void printM();
     void printB();
     void getBlockSizeAndMatrixSize(int &, int &);
     void mmmBLAS(int , float *, float *, float *);
-    void invBLAS(int n, const float *A, float *result);
+    void invBLAS(int n, const float *A, float *result); // correct
     void mmAdd(int n, float *A, float *B, float *result);
     void mmSub(int n, float *A, float *B, float *result);
     ~Matrix();

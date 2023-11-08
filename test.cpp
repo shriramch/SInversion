@@ -1,40 +1,42 @@
-#include "rgf2.hpp"
+#include "matrices_utils.hpp"
+#include <cmath>
+#include <assert.h>
 
-generateBandedDiagonalMatrix() {
-
-    
-    A = generateRandomNumpyMat(matrice_size, is_complex, is_symmetric, seed)
-    
-    for i in range(matrice_size):
-        for j in range(matrice_size):
-            if i - j > matrice_bandwidth or j - i > matrice_bandwidth:
-                A[i, j] = 0
-
-    return A
+bool areFloatsEqual(float a, float b, float epsilon = 1e-9) {
+    return std::fabs(a - b) < epsilon;
 }
 
-convertDenseToBlkTridiag
+void test_rgf2sided(int matrixSize, int blockSize, bool isSymmetric=false) {
+    int processRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+    int bandwidth = (int) std::ceilf(((float) blockSize) / 2); // consider some examples where blockSize is not even
+    Matrix A =  generateBandedDiagonalMatrix(matrixSize, bandwidth, isSymmetric);
+    A.convertDenseToBlkTridiag(blockSize); // calculate the diagonal blocks
+    Matrix G(matrixSize); // zero initialization, same shape as A
+    G.convertDenseToBlkTridiag(blockSize); // allocate memory for diagonal blocks
+    rgf2sided(A, G, false, false);
 
-test_rgf2sided() {
-
-}
+    G.printM();
+    G.printB();
+    float *A_ref = new float[matrixSize * matrixSize];
+    A.invBLAS(matrixSize, A.getMat(), A_ref);
+    float *G_mat = G.getMat();
+    
+    if (processRank == 0) {
+        for (int i = 0; i < matrixSize*matrixSize; ++i) {
+        assert(areFloatsEqual(A_ref[i], G_mat[i]));
+    }
+        std::cout << "Test passed.\n";
+    }
+} 
 
 int main(int argc, char **argv) {
-    int processRank;
     MPI_Init(&argc, &argv);
+    int processRank;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
-    float *t = new float[16];
-    for (int i = 0; i < 16; ++i) {
-        t[i] = i + 1;
+    if (processRank == 0) {
+        std::cout << "Testing rgf2sided...\n";
+        test_rgf2sided(16,2,true);
     }
-    Matrix A(4, t);
-    A.printM();
-    A.convert3D(2);
-    A.printB();
-
-    Matrix G(4); // zero initialization, same shape as A
-    G.convert3D(2); // G has same blockSize as in A
-    // rgf2sided(A, G,false, false);
-
     MPI_Finalize();
 }
