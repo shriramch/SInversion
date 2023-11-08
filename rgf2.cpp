@@ -95,8 +95,17 @@ void Matrix::printB() {
 
 void Matrix::get(int &t, int &u) { t = B, u = n; }
 
-void rgf2sided(Matrix &A, bool sym_mat = false, bool save_off_diag = true,
-               Matrix &G) {
+// References based implementation
+// R = nblocks_2
+void rgf2sided_upperprocess(Matrix &A, Matrix &G, int R, bool sym_mat = false,
+                            bool save_off_diag = true) {}
+
+// L = nblocks_2
+void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int L, bool sym_mat = false,
+                            bool save_off_diag = true) {}
+
+void rgf2sided(Matrix &A, Matrix &G, bool sym_mat = false,
+               bool save_off_diag = true) {
     int process_rank, B, n;
     MPI_Comm_rank(MPI_COMM_WORLD, &process_rank);
 
@@ -105,7 +114,7 @@ void rgf2sided(Matrix &A, bool sym_mat = false, bool save_off_diag = true,
     int nblocks_2 = B / 2;
 
     if (process_rank == 0) {
-        rgf2sided_upperprocess(A, sym_mat, save_off_diag, G, nblocks_2);
+        rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
 
         MPI_Recv((void *)G.mdiag, nblocks_2 * n * n, MPI_FLOAT, 1, 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -115,7 +124,7 @@ void rgf2sided(Matrix &A, bool sym_mat = false, bool save_off_diag = true,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     } else if (process_rank == 1) {
-        rgf2sided_lowerprocess(A, sym_mat, save_off_diag, G, nblocks_2);
+        rgf2sided_lowerprocess(A, G, nblocks_2, sym_mat, save_off_diag);
 
         MPI_Send((const void *)&G.mdiag[nblocks_2 * B * B],
                  (B - nblocks_2) * n * n, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
@@ -126,25 +135,16 @@ void rgf2sided(Matrix &A, bool sym_mat = false, bool save_off_diag = true,
     }
 }
 
-// References based implementation
-// R = nblocks_2
-void rgf2sided_upperprocess(Matrix &A, bool sym_mat = false,
-                            bool save_off_diag = true, Matrix &G, int R) {}
-
-// L = nblocks_2
-void rgf2sided_lowerprocess(Matrix &A, bool sym_mat = false,
-                            bool save_off_diag = true, Matrix &G, int L) {}
-
-// int main() {
-//     float *t = new float[16];
-//     for (int i = 0; i < 16; ++i) {
-//         t[i] = i + 1;
-//     }
-//     Matrix m(4, t);
-//     m.printM();
-//     m.convert3D(1);
-//     m.printB();
-// }
+int main() {
+    float *t = new float[16];
+    for (int i = 0; i < 16; ++i) {
+        t[i] = i + 1;
+    }
+    Matrix m(4, t);
+    // m.printM();
+    m.convert3D(1);
+    // m.printB();
+}
 
 void Matrix::MMM_BLAS(int n, float *A, float *B, float *result) {
     const CBLAS_ORDER order = CblasRowMajor;
@@ -153,23 +153,23 @@ void Matrix::MMM_BLAS(int n, float *A, float *B, float *result) {
     const float alpha = 1.0;
     const float beta = 0.0;
 
-    cblas_sgemm(order, transA, transB, n, n, n, alpha, A, n, B, n, beta, result, n);
+    cblas_sgemm(order, transA, transB, n, n, n, alpha, A, n, B, n, beta, result,
+                n);
 }
 
 void Matrix::MMM_noob(int n, float *A, float *B, float *result) {
-  
+
     float *res_temp = (float *)malloc(n * n * sizeof(float));
 
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
             for (int k = 0; k < n; ++k) {
-            res_temp[i * n + j] += A[i * n + k] * B[k * n + j];
+                res_temp[i * n + j] += A[i * n + k] * B[k * n + j];
             }
         }
     }
     memcpy(result, res_temp, n * n * sizeof(float));
     free(res_temp);
-
 }
 
 void Matrix::mat_INV(int n, const float *A, float *result) {

@@ -12,4 +12,4 @@ Before you begin, ensure you have met the following requirements:
 
 ## Compilation Instructions
 
-- mpic++ -o test rgf2.cpp -lblas -llapack
+- mpic++ -o test rgf2.cpp -lblas -llapacke
