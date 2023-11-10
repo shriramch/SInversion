@@ -6,13 +6,18 @@ This project is designed to implement a optimised code for Selected Inversion Al
 
 Before you begin, ensure you have met the following requirements:
 
-- [BLAS](#blas) : sudo apt install libopenblas-base 
+- sudo apt-get upgrade
+- [BLAS](#blas) :   sudo apt install libopenblas-base 
+                    sudo apt-get install libopenblas-dev (Ubuntu)
 - [LAPACKe](#lapacke) : sudo apt-get install liblapacke-dev
 - [MPI](#mpi) : sudo apt-get install openmpi-bin libopenmpi-dev
 
 ## Compilation Instructions
 
-- mpic++ -o test rgf2.cpp -lblas -llapack
+- mpic++ -o test rgf2.cpp -lblas -llapack 
+
+For Ubuntu user:
+- mpic++ -o test rgf2.cpp -lblas -llapacke
 
 for MacOS user (add path to openblas and lapack libraries):
 - mpic++ -o test rgf2.cpp -I/usr/local/opt/lapack/include -I/usr/local/opt/openblas/include  -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -lopenblas -llapack
@@ -20,6 +25,9 @@ for MacOS user (add path to openblas and lapack libraries):
 detailed test (buggy, no try, use only the rgf2.cpp main to test now)
 - mpic++ -o test matrices_utils.cpp test.cpp rgf2.cpp -I/usr/local/opt/lapack/include -I/usr/local/opt/openblas/include  -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -lopenblas -llapack
 
+## Running Instructions
+run single process
+- mpirun ./test
 run with two processes
 -  mpirun -np 2 ./test
 

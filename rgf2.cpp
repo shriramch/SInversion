@@ -416,17 +416,18 @@ void Matrix::invBLAS(int n, const float *A, float *result) {
 
 int main(int argc, char **argv) {
     int processRank;
+    int MATRIX_SIZE = 32;
     
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
-    float *t = new float[16*16]();
-    for (int i = 0; i < 16 ; ++i) {
-        t[i * 16 + i] = i + 1;
+    float *t = new float[MATRIX_SIZE*MATRIX_SIZE]();
+    for (int i = 0; i < MATRIX_SIZE ; ++i) {
+        t[i * MATRIX_SIZE + i] = i + 1;
     }
-    Matrix A(16, t);
+    Matrix A(MATRIX_SIZE, t);
     A.convertDenseToBlkTridiag(2);
 
-    Matrix G(16); // zero initialization, same shape as A
+    Matrix G(MATRIX_SIZE); // zero initialization, same shape as A
     G.convertDenseToBlkTridiag(2); // G has same blockSize as in A
     rgf2sided(A, G,false, true);
     if(processRank == 0){
