@@ -137,8 +137,6 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
         
     } else if (processRank == 1) {
         rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat, save_off_diag);
-        // std::cout << "nblocks: " << nblocks << std::endl;
-        // std::cout << "nblocks_2: " << nblocks_2 << std::endl;
         MPI_Send((const void *)(G.mdiag + nblocks_2 * matrixSize * matrixSize),
                  (nblocks - nblocks_2) * matrixSize * matrixSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         MPI_Send((const void *)(G.updiag + nblocks_2 * matrixSize * matrixSize),
@@ -275,7 +273,6 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     float *A_diagblk_rightprocess = A.mdiag + nblocks_2 * blockSize * blockSize;  // nblocks_2 to nblocks-1(included) blocks
     float *A_upperblk_rightprocess = A.updiag + (nblocks_2-1) * blockSize * blockSize; // nblocks_2 -1 to nblocks - 2; note updiag is one smaller than mdiag; A_diagblk_rightprocess and A_upperblk_rightprocess is of same size
     float *A_lowerbk_rightprocess = A.lodiag + (nblocks_2-1) * blockSize * blockSize; 
-
     // to check correctness
     float *G_diagblk_rightprocess = new float[(nblocks_2+1) * blockSize * blockSize]();
     float *G_upperblk_rightprocess = new float[nblocks_2 * blockSize * blockSize]();
@@ -286,7 +283,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     float* zeros = new float[blockSize * blockSize](); 
 
     // Initialisation of g - invert first block
-    A.invBLAS(blockSize, A_diagblk_rightprocess + nblocks_2-1, G_diagblk_rightprocess + nblocks_2 - 1); 
+    A.invBLAS(blockSize, A_diagblk_rightprocess + nblocks_2, G_diagblk_rightprocess + nblocks_2 ); 
     
     // Forward substitution
     for (int i = nblocks_2-1; i >= 1; i -= 1) {
@@ -326,6 +323,19 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess, 
                temp_result_1);
 
+    if (sym_mat) {
+        // matrix transpose
+        cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess, blockSize, G_upperblk_rightprocess, blockSize); 
+    }
+    else {
+        A.mmmBLAS(blockSize, G_diagblk_rightprocess, 
+               A_upperblk_rightprocess, 
+               temp_result_1);
+        A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + 1 * blockSize*blockSize, 
+               G_upperblk_rightprocess);
+    }
+
+    // Backward substitution
     for (int i = 1; i < nblocks_2; ++i) {
         float *g_ii = G_diagblk_rightprocess + (i+1) * blockSize * blockSize;
         float *G_lowerfactor = new float[blockSize * blockSize];
@@ -344,9 +354,14 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                 A.mmmBLAS(blockSize, temp_result_1, g_ii, 
                     temp_result_1);
                 A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_rightprocess + i * blockSize * blockSize);
-                
             }
         }
+        A.mmmBLAS(blockSize, G_lowerfactor, 
+                    A_upperblk_rightprocess + i*blockSize*blockSize, 
+                    temp_result_1);
+        A.mmmBLAS(blockSize, temp_result_1, g_ii, 
+                    temp_result_1);
+        A.mmAdd(blockSize, g_ii, temp_result_1, G_diagblk_rightprocess + (i+1)*blockSize*blockSize);
     }
 
     memcpy(G.mdiag, G_diagblk_rightprocess+1, nblocks_2 * blockSize * blockSize * sizeof(float));
