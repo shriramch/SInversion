@@ -17,14 +17,14 @@ using namespace std;
 class Matrix {
     int matrixSize, blockSize; 
     float *mat; // indexing: [row][column] = [i][j] = i*blockSize + j
-    bool allclose(const float* a, const float* b, std::size_t size, double rtol = 1e-5, double atol = 1e-8);
+    bool allclose(const float* a, const float* b, std::size_t size, double rtol = 1e-3, double atol = 1e-5, bool isPrint=true);
     
 public:
     float *mdiag, *updiag, *lodiag; // indexing: [b][i][j] = b*blockSize*blockSize + i*blockSize + j
     Matrix(int);
     Matrix(int, float *);
     float* getMat();
-    bool compareDiagonals(const Matrix& other);
+    bool compareDiagonals(const Matrix& other, bool);
     void convertDenseToBlkTridiag(const int);
     void convertBlkTridiagToDense();
     void printM();

@@ -9,7 +9,7 @@ run: compile_mpi
 	mpirun -np 2 ./test > run.txt
 
 compile_mpi:
-	$(MPI) -o test rgf2.cpp test.cpp matrices_utils.cpp $(MPI_FLAGS) 
+	$(MPI) -o test rgf2.cpp test.cpp argparse.cpp matrices_utils.cpp $(MPI_FLAGS) 
 # TODO, reorginize to put code into 2 folders 'source' and 'include'
 
 clean:
