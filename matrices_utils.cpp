@@ -13,6 +13,7 @@ void Matrix::copyMatrixData(const Matrix& other) {
     matrixSize = other.matrixSize;
     blockSize = other.blockSize;
     int nblocks = matrixSize / blockSize;
+    mat = new float[matrixSize * matrixSize];
     mdiag = new float[nblocks * blockSize * blockSize];
     updiag = new float[(nblocks - 1) * blockSize * blockSize];
     lodiag = new float[(nblocks - 1) * blockSize * blockSize];
@@ -26,7 +27,7 @@ void Matrix::copyMatrixData(const Matrix& other) {
 Matrix::Matrix(const Matrix& other) {
     copyMatrixData(other);
 }
-// Copy assignment operator
+// Copy assignment operator - allow different size
 Matrix& Matrix::operator=(const Matrix& other) {
     if (this != &other) {
         delete[] mat;

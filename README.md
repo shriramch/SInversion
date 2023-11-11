@@ -36,8 +36,9 @@ run with two processes
 - 'make run', it will compile the files and then save the output to 'run.txt'
 
 The new running method:
-- (random mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true>\n 
+- (random mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true>\n . Eg. mpirun -np 2 ./test -m 8 -b 2 -n 10 -s 0 -o 1
 - (file mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true> -f <inputPath>\n
+
         
 TODO:
 - Inspect memory safety issues.
