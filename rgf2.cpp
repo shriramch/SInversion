@@ -134,13 +134,13 @@ bool Matrix::compareDiagonals(const Matrix& other) {
     }
 
     // Compare upper diagonal (updiag)
-    if (!allclose(updiag, other.updiag, (matrixSize - 1) * blockSize, 1e-5, 1e-8)) {
+    if (!allclose(updiag, other.updiag, (matrixSize - blockSize) * blockSize, 1e-5, 1e-8)) {
         std::cout << "Upper diagonal not equal." << std::endl;
         return false;
     }
 
     // Compare lower diagonal (lodiag)
-    if (!allclose(lodiag, other.lodiag, (matrixSize - 1) * blockSize, 1e-5, 1e-8)) {
+    if (!allclose(lodiag, other.lodiag, (matrixSize - blockSize) * blockSize, 1e-5, 1e-8)) {
         std::cout << "Lower diagonal not equal." << std::endl;
         return false;
     }

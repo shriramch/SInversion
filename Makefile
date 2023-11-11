@@ -1,5 +1,5 @@
 MPI := mpic++
-MPI_FLAGS := -lblas -llapack -llapacke
+MPI_FLAGS := -I/usr/local/opt/lapack/include -I/usr/local/opt/openblas/include  -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -lblas -llapack -llapacke
 #-Werror , and added -w to avoid warning (have some problem with %lu as I's using Windows)
 
 print: run
