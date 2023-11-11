@@ -2,6 +2,7 @@
 #include "argparse.h"
 #include <stdio.h>
 #include "matrices_utils.hpp"
+#include "rgf2.hpp"
 
 #include <iostream>
 #include <cmath>

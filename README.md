@@ -40,5 +40,10 @@ The new running method:
 - (file mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true> -f <inputPath>\n
         
 TODO:
-- Inspect memory safety issues
+- Inspect memory safety issues.
+- See if precision can be improved.
 - Integrate and profiling.
+
+Note:
+- Please do not use using namespace std;
+- Please do not use #include <bits/stdc++.h>

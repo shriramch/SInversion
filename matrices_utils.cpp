@@ -1,5 +1,246 @@
 #include "matrices_utils.hpp"
 // memory safety -- take care
+
+Matrix::~Matrix() {
+    delete[] mat;
+    delete[] mdiag;
+    delete[] updiag;
+    delete[] lodiag;
+}
+
+void Matrix::copyMatrixData(const Matrix& other) {
+    // deep copy
+    matrixSize = other.matrixSize;
+    blockSize = other.blockSize;
+    int nblocks = matrixSize / blockSize;
+    mdiag = new float[nblocks * blockSize * blockSize];
+    updiag = new float[(nblocks - 1) * blockSize * blockSize];
+    lodiag = new float[(nblocks - 1) * blockSize * blockSize];
+    memcpy(mat, other.mat, matrixSize * matrixSize * sizeof(float));
+    memcpy(mdiag, other.mdiag, nblocks * blockSize * blockSize * sizeof(float));
+    memcpy(updiag, other.updiag, (nblocks - 1) * blockSize * blockSize * sizeof(float));
+    memcpy(lodiag, other.lodiag, (nblocks - 1) * blockSize * blockSize * sizeof(float));
+}
+
+// Copy constructor
+Matrix::Matrix(const Matrix& other) {
+    copyMatrixData(other);
+}
+// Copy assignment operator
+Matrix& Matrix::operator=(const Matrix& other) {
+    if (this != &other) {
+        delete[] mat;
+        delete[] mdiag;
+        delete[] updiag;
+        delete[] lodiag;
+        copyMatrixData(other);
+    }
+    return *this;
+}
+
+/* Zero-initialize matrix  */
+Matrix::Matrix(int N) {
+    matrixSize = N;
+    mat = new float[N * N]();
+    blockSize = 1;
+    mdiag = NULL;
+    updiag = NULL;
+    lodiag = NULL;
+}
+
+/* initlize matrix with size N and values newMat */
+Matrix::Matrix(int N, float *newMat) {
+    matrixSize = N;
+    mat = new float[N * N];
+    memcpy(mat, newMat, N * N * sizeof(float));
+    blockSize = 1;
+    mdiag = NULL;
+    updiag = NULL;
+    lodiag = NULL;
+}
+
+// convert back to show the result 
+void Matrix::convertBlkTridiagToDense() {
+    assert(matrixSize % blockSize == 0); // matrixSize must be divisible by blockSize
+    int nblocks = matrixSize / blockSize;
+    // Assume it is called after initialization of mdiag, updiag, lodiag
+    for (int b = 0; b < nblocks; ++b) {
+        for (int i = 0; i < blockSize; ++i) {
+            for (int j = 0; j < blockSize; ++j) {
+                mat[(b * blockSize + i) * matrixSize + (b * blockSize + j)]
+                = mdiag[b * blockSize * blockSize + i * blockSize + j];
+            }
+        }
+    }
+
+    for (int b = 0; b < nblocks - 1; ++b) {
+        for (int i = 0; i < blockSize; ++i) {
+            for (int j = 0; j < blockSize; ++j) {
+                mat[(b * blockSize + i) * matrixSize + ((b + 1) * blockSize + j)] = 
+                updiag[b * blockSize * blockSize + i * blockSize + j];
+                mat[((b + 1) * blockSize + i) * matrixSize + (b * blockSize + j)] = 
+                lodiag[b * blockSize * blockSize + i * blockSize + j];
+            }
+        }
+    }
+}
+
+void Matrix::transposeBLAS(int n, float *A, float *result) {
+    cblas_somatcopy(CblasRowMajor, CblasTrans, n, n, 1.0f, A, n, result, n);
+}
+
+/* Generate 3 representations */
+void Matrix::convertDenseToBlkTridiag(const int blockSize) {
+    this->blockSize = blockSize;
+    assert(matrixSize % blockSize == 0); // matrixSize must be divisible by blockSize
+    int nblocks = matrixSize / blockSize;
+    mdiag = new float[nblocks * blockSize * blockSize];
+    updiag = new float[(nblocks - 1) * blockSize * blockSize];
+    lodiag = new float[(nblocks - 1) * blockSize * blockSize];
+    for (int b = 0; b < nblocks; ++b) {
+        for (int i = 0; i < blockSize; ++i) {
+            for (int j = 0; j < blockSize; ++j) {
+                mdiag[b * blockSize * blockSize + i * blockSize + j] =
+                    mat[(b * blockSize + i) * matrixSize + (b * blockSize + j)];
+            }
+        }
+    }
+
+    for (int b = 0; b < nblocks - 1; ++b) {
+        for (int i = 0; i < blockSize; ++i) {
+            for (int j = 0; j < blockSize; ++j) {
+                updiag[b * blockSize * blockSize + i * blockSize + j] =
+                    mat[(b * blockSize + i) * matrixSize + ((b + 1) * blockSize + j)];
+                lodiag[b * blockSize * blockSize + i * blockSize + j] =
+                    mat[((b + 1) * blockSize + i) * matrixSize + (b * blockSize + j)];
+            }
+        }
+    }
+}
+
+void Matrix::printM() {
+    std::cout << "Matrix: " << std::endl;
+    for (int i = 0; i < matrixSize; ++i) {
+        for (int j = 0; j < matrixSize; ++j) {
+            std::cout << mat[i * matrixSize + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
+void Matrix::printB() {
+    std::cout << "Main diagonal: " << std::endl;
+    for (int i = 0; i < matrixSize / blockSize; ++i) {
+        for (int j = 0; j < blockSize; ++j) {
+            for (int k = 0; k < blockSize; ++k) {
+                std::cout << mdiag[i * blockSize * blockSize + j * blockSize + k] << " ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "Upper diagonal: " << std::endl;
+    for (int i = 0; i < matrixSize / blockSize - 1; ++i) {
+        for (int j = 0; j < blockSize; ++j) {
+            for (int k = 0; k < blockSize; ++k) {
+                std::cout << updiag[i * blockSize * blockSize + j * blockSize + k] << " ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+    std::cout << "Lower diagonal: " << std::endl;
+    for (int i = 0; i < matrixSize / blockSize - 1; ++i) {
+        for (int j = 0; j < blockSize; ++j) {
+            for (int k = 0; k < blockSize; ++k) {
+                std::cout << lodiag[i * blockSize * blockSize + j * blockSize + k] << " ";
+            }
+            std::cout << std::endl;
+        }
+        std::cout << std::endl;
+    }
+}
+
+void Matrix::getBlockSizeAndMatrixSize(int &outBlockSize, int &outMatrixSize) {
+    outBlockSize = blockSize;
+    outMatrixSize = matrixSize;
+}
+
+float* Matrix::getMat() {
+    return mat;
+}
+
+// Note, we expect the same size for both the lists
+bool Matrix::allclose(const float* a, const float* b, std::size_t size, double rtol, double atol, bool isPrint) {
+    for (std::size_t i = 0; i < size; ++i) {
+        if (isPrint) {
+            std::cout << a[i] << " vs " << b[i] << std::endl;
+        }
+        if (std::abs(a[i] - b[i]) > (atol + rtol * std::abs(b[i]))) {
+            printf("Not equal value: a[i]: %f, b[i]: %f, absolute difference: %f, relative difference: %f%%\n", a[i], b[i], std::abs(a[i]-b[i]), std::abs(a[i]-b[i]) / std::abs(b[i]) * 100);
+            return false;  // Elements are not almost equal
+        }
+    }
+
+    return true;  // All elements are almost equal
+}
+
+bool Matrix::compareDiagonals(const Matrix& other, bool isPrint=true) {
+    // Compare main diagonal (mdiag)
+    double rtol = 1e-3, atol = 1e-5;
+    if (!allclose(mdiag, other.mdiag, matrixSize * blockSize, rtol, atol, isPrint)) {
+        std::cout << "Main diagonal not equal." << std::endl;
+        return false;
+    }
+
+    // Compare upper diagonal (updiag)
+    if (!allclose(updiag, other.updiag, (matrixSize - blockSize) * blockSize, rtol, atol, isPrint)) {
+        std::cout << "Upper diagonal not equal." << std::endl;
+        return false;
+    }
+
+    // Compare lower diagonal (lodiag)
+    if (!allclose(lodiag, other.lodiag, (matrixSize - blockSize) * blockSize, rtol, atol, isPrint)) {
+        std::cout << "Lower diagonal not equal." << std::endl;
+        return false;
+    }
+    return true;
+}
+
+void Matrix::mmmBLAS(int n, float *A, float *B, float *result) {
+    const CBLAS_ORDER order = CblasRowMajor;
+    const CBLAS_TRANSPOSE transA = CblasNoTrans;
+    const CBLAS_TRANSPOSE transB = CblasNoTrans;
+    const float alpha = 1.0;
+    const float beta = 0.0;
+
+    cblas_sgemm(order, transA, transB, n, n, n, alpha, A, n, B, n, beta, result, n);
+}
+
+void Matrix::mmSub(int n, float *A, float *B, float *result){
+    for (int i = 0; i < n * n; ++i) {
+        result[i] = A[i] - B[i];
+    }
+}
+
+void Matrix::mmAdd(int n, float *A, float *B, float *result) {
+    for (int i = 0; i < n * n; ++i) {
+        result[i] = A[i] + B[i];
+    }
+}
+
+void Matrix::invBLAS(int n, const float *A, float *result) {
+
+    int *ipiv = (int *)malloc(n * sizeof(int));
+    memcpy(result, A, n * n * sizeof(float));
+
+    LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, result, n, ipiv);
+
+    LAPACKE_sgetri(LAPACK_ROW_MAJOR, n, result, n, ipiv);
+
+    free(ipiv);
+}
+
 /*
     Generate a dense matrix of shape: (matrice_size x matrice_size) filled 
     with random numbers. The matrice should real valued.
