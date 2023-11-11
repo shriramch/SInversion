@@ -51,7 +51,8 @@ int main(int argc, char **argv) {
     // }
     // Matrix inputMatrix(MATRIX_SIZE, t);
     // The randomly generated one does not work
-    Matrix inputMatrix = generateRandomMat(MATRIX_SIZE, true, 42);
+    // Matrix inputMatrix = generateRandomMat(MATRIX_SIZE, true, 42);
+    Matrix inputMatrix = generateBandedDiagonalMatrix(MATRIX_SIZE, 2, false, 42);
     inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
     
     // Calculate base result using base algorithm

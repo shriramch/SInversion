@@ -49,6 +49,31 @@ Matrix generateBandedDiagonalMatrix(int matrixSize, int matriceBandwidth, bool i
     return A;
 }
 
+Matrix generateFixedMatrixOfSize8 () {
+    float given_matrix[8][8] = {
+        {0.11214, 0.976047, 0, 0, 0, 0, 0, 0},
+        {0.976047, 0.423681, 0.434601, 0, 0, 0, 0, 0},
+        {0, 0.434601, 0.337407, 0.218091, 0, 0, 0, 0},
+        {0, 0, 0.218091, 0.452596, 0.381082, 0, 0, 0},
+        {0, 0, 0, 0.381082, 0.845901, 0.514452, 0, 0},
+        {0, 0, 0, 0, 0.514452, 0.392368, 0.065431, 0},
+        {0, 0, 0, 0, 0, 0.065431, 0.698868, 0.690582},
+        {0, 0, 0, 0, 0, 0, 0.690582, 0.606674}
+    };
+    int total_elements = 8 * 8;
+    float *oneDArray = (float *)malloc(total_elements * sizeof(float));
+    int index = 0;
+    for (int i = 0; i < 8; i++) {
+        for (int j = 0; j < 8; j++) {
+            oneDArray[index] = given_matrix[i][j];
+            index++;
+        }
+    }
+    Matrix result(8, oneDArray);
+    free(oneDArray);
+    return result;
+}
+
 /* 
     Make a matrix symmetric;
 */

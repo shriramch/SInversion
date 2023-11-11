@@ -29,8 +29,29 @@ Matrix::Matrix(int N, float *newMat) {
 }
 
 // convert back to show the result 
-void convertBlkTridiagToDense() {
-    // TODO
+void Matrix::convertBlkTridiagToDense() {
+    assert(matrixSize % blockSize == 0); // matrixSize must be divisible by blockSize
+    int nblocks = matrixSize / blockSize;
+    // Assume it is called after initialization of mdiag, updiag, lodiag
+    for (int b = 0; b < nblocks; ++b) {
+        for (int i = 0; i < blockSize; ++i) {
+            for (int j = 0; j < blockSize; ++j) {
+                mat[(b * blockSize + i) * matrixSize + (b * blockSize + j)]
+                = mdiag[b * blockSize * blockSize + i * blockSize + j];
+            }
+        }
+    }
+
+    for (int b = 0; b < nblocks - 1; ++b) {
+        for (int i = 0; i < blockSize; ++i) {
+            for (int j = 0; j < blockSize; ++j) {
+                mat[(b * blockSize + i) * matrixSize + ((b + 1) * blockSize + j)] = 
+                updiag[b * blockSize * blockSize + i * blockSize + j];
+                mat[((b + 1) * blockSize + i) * matrixSize + (b * blockSize + j)] = 
+                lodiag[b * blockSize * blockSize + i * blockSize + j];
+            }
+        }
+    }
 }
 
 /* Generate 3 representations */
@@ -159,7 +180,7 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
     if (processRank == 0) {
         rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
         
-        float buffer = 0.0;
+        // float buffer = 0.0;
         // MPI_Recv((void *)&buffer, 1, MPI_FLOAT, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         // printf("Received %f\n", buffer);
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize), 
@@ -176,6 +197,7 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
         // float send_buffer = 100.1;
         // MPI_Send((const void *)&send_buffer, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         // G.printB();
+        // should I replicate G?
         MPI_Send((const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         MPI_Send((const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
