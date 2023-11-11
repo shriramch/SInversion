@@ -46,7 +46,8 @@ int parse(Config *config, int argc, const char **argv) {
     static const char *const usages[] = {
         NULL,
     };
-
+    int processRank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
     struct argparse_option options[] = {
         OPT_HELP(),
         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL, 0, 0),
@@ -62,13 +63,15 @@ int parse(Config *config, int argc, const char **argv) {
     argparse_init(&argparse, options, usages, 0);
     argparse_describe(&argparse, "DPHPC TEAM", NULL);
     argc = argparse_parse(&argparse, argc, argv);
-    printf("[Config] matrixSize: %d\n", config->matrixSize);
-    printf("[Config] blockSize: %d\n", config->blockSize);
-    printf("[Config] numRuns: %d\n", config->numRuns);
-    printf("[Config] isSymmetric: %d\n", config->isSymmetric);
-    printf("[Config] saveOffDiag: %d\n", config->saveOffDiag);
-    if (config->inputPath != NULL) {
-        printf("[Config] inputPath: %s\n", config->inputPath);
+    if (processRank == 0) {
+        printf("[Config] matrixSize: %d\n", config->matrixSize);
+        printf("[Config] blockSize: %d\n", config->blockSize);
+        printf("[Config] numRuns: %d\n", config->numRuns);
+        printf("[Config] isSymmetric: %d\n", config->isSymmetric);
+        printf("[Config] saveOffDiag: %d\n", config->saveOffDiag);
+        if (config->inputPath != NULL) {
+            printf("[Config] inputPath: %s\n", config->inputPath);
+        }
     }
     return 0;
 }

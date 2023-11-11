@@ -8,6 +8,36 @@ Matrix::~Matrix() {
     delete[] lodiag;
 }
 
+void Matrix::copyMatrixData(const Matrix& other) {
+    // deep copy
+    matrixSize = other.matrixSize;
+    blockSize = other.blockSize;
+    int nblocks = matrixSize / blockSize;
+    mdiag = new float[nblocks * blockSize * blockSize];
+    updiag = new float[(nblocks - 1) * blockSize * blockSize];
+    lodiag = new float[(nblocks - 1) * blockSize * blockSize];
+    memcpy(mat, other.mat, matrixSize * matrixSize * sizeof(float));
+    memcpy(mdiag, other.mdiag, nblocks * blockSize * blockSize * sizeof(float));
+    memcpy(updiag, other.updiag, (nblocks - 1) * blockSize * blockSize * sizeof(float));
+    memcpy(lodiag, other.lodiag, (nblocks - 1) * blockSize * blockSize * sizeof(float));
+}
+
+// Copy constructor
+Matrix::Matrix(const Matrix& other) {
+    copyMatrixData(other);
+}
+// Copy assignment operator
+Matrix& Matrix::operator=(const Matrix& other) {
+    if (this != &other) {
+        delete[] mat;
+        delete[] mdiag;
+        delete[] updiag;
+        delete[] lodiag;
+        copyMatrixData(other);
+    }
+    return *this;
+}
+
 /* Zero-initialize matrix  */
 Matrix::Matrix(int N) {
     matrixSize = N;
@@ -305,17 +335,17 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     // write_array(filepath, G_diagblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
 
     // Compute the shared off-diagonal upper block
-    write_array(filepath, G_diagblk_leftprocess + nblocks_2*blockSize*blockSize, blockSize);
-    write_array(filepath, A_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
+    // write_array(filepath, G_diagblk_leftprocess + nblocks_2*blockSize*blockSize, blockSize);
+    // write_array(filepath, A_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
     A.mmmBLAS(blockSize, G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize, 
                A_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, 
                temp_result_1);
-    write_array(filepath, temp_result_1, blockSize);
+    // write_array(filepath, temp_result_1, blockSize);
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, 
                temp_result_2);
-    write_array(filepath, temp_result_2, blockSize);
+    // write_array(filepath, temp_result_2, blockSize);
     A.mmSub(blockSize, zeros, temp_result_2, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize);
-    write_array(filepath, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, blockSize);
+    // write_array(filepath, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, blockSize);
     if (sym_mat) {
         // matrix transpose
         cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize); 
@@ -341,7 +371,7 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         // write_array(filepath, G_lowerfactor, blockSize);
         if (save_off_diag) {
             A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_leftprocess + i*blockSize*blockSize);
-            write_array(filepath, G_lowerblk_leftprocess + i*blockSize*blockSize, blockSize);
+            // write_array(filepath, G_lowerblk_leftprocess + i*blockSize*blockSize, blockSize);
             if(sym_mat) {
                 // matrix transpose
                 cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (i)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (i)*blockSize*blockSize, blockSize);
@@ -450,7 +480,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                temp_result_1);
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess, 
                G_lowerblk_rightprocess);
-    write_array(filepath, G_lowerblk_rightprocess, blockSize);    
+    // write_array(filepath, G_lowerblk_rightprocess, blockSize);    
     if (sym_mat) {
         // matrix transpose
         cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess, blockSize, G_upperblk_rightprocess, blockSize); 
@@ -473,7 +503,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + i * blockSize * blockSize, G_lowerfactor);
         if (save_off_diag) {
             A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_rightprocess + i * blockSize * blockSize);
-            write_array(filepath, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize);
+            // write_array(filepath, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize);
             if (sym_mat) {
                 // matrix transpose
                 cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize); 

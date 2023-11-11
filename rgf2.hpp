@@ -23,6 +23,11 @@ public:
     float *mdiag, *updiag, *lodiag; // indexing: [b][i][j] = b*blockSize*blockSize + i*blockSize + j
     Matrix(int);
     Matrix(int, float *);
+    // Copy constructor
+    Matrix(const Matrix& other);
+    // Copy assignment operator
+    Matrix& operator=(const Matrix& other);
+    void copyMatrixData(const Matrix& other);
     float* getMat();
     bool compareDiagonals(const Matrix& other, bool);
     void convertDenseToBlkTridiag(const int);
