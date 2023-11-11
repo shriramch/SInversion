@@ -58,6 +58,8 @@ void makeMatrixBanded(int matrixSize, int matriceBandwidth, float* matrix) {
     }
 }
 
+// fixed matrix; matrixSize = 8, blocksize = 2, bandwidth = 1
+// isSymmetric = true
 Matrix generateFixedMatrixOfSize8 () {
     float given_matrix[8][8] = {
         {0.11214, 0.976047, 0, 0, 0, 0, 0, 0},
@@ -96,19 +98,3 @@ void transformToSymmetric(Matrix& A) {
         }
     }
 }
-
-
-// test function correctness
-// int main() {
-//     int matrice_size = 8;
-//     Matrix m = generateBandedDiagonalMatrix(matrice_size, true, 0);
-//     float *matrix = m.getMat(); //generateRandomMat(matrice_size, true, 0);
-
-//     for (int i = 0; i < matrice_size; i++) {
-//         for (int j = 0; j < matrice_size; j++) {
-//             std::cout << matrix[i * matrice_size + j] << " ";
-//         }
-//         std::cout << std::endl;
-//     }
-//     return 0;
-// }

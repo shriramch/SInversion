@@ -35,6 +35,10 @@ run with two processes
 ## How to Test
 - 'make run', it will compile the files and then save the output to 'run.txt'
 
+The new running method:
+- (random mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true>\n 
+- (file mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true> -f <inputPath>\n
+        
 TODO:
-- write test code similar to testpy
-- debug implementation
+- Inspect memory safety issues
+- Integrate and profiling.

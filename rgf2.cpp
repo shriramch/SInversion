@@ -85,6 +85,10 @@ void Matrix::convertBlkTridiagToDense() {
     }
 }
 
+void Matrix::transposeBLAS(int n, float *A, float *result) {
+    cblas_somatcopy(CblasRowMajor, CblasTrans, n, n, 1.0f, A, n, result, n);
+}
+
 /* Generate 3 representations */
 void Matrix::convertDenseToBlkTridiag(const int blockSize) {
     this->blockSize = blockSize;
@@ -348,7 +352,7 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     // write_array(filepath, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, blockSize);
     if (sym_mat) {
         // matrix transpose
-        cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize); 
+        A.transposeBLAS(blockSize, G_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize);
         // write_array(filepath, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
     }
     else {
@@ -374,7 +378,7 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
             // write_array(filepath, G_lowerblk_leftprocess + i*blockSize*blockSize, blockSize);
             if(sym_mat) {
                 // matrix transpose
-                cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (i)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (i)*blockSize*blockSize, blockSize);
+                A.transposeBLAS(blockSize, G_lowerblk_leftprocess + (i)*blockSize*blockSize, G_upperblk_leftprocess + (i)*blockSize*blockSize);
                 // write_array(filepath, G_upperblk_leftprocess + (i)*blockSize*blockSize, blockSize);
             }
             else {
@@ -483,7 +487,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     // write_array(filepath, G_lowerblk_rightprocess, blockSize);    
     if (sym_mat) {
         // matrix transpose
-        cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess, blockSize, G_upperblk_rightprocess, blockSize); 
+        A.transposeBLAS(blockSize, G_lowerblk_rightprocess, G_upperblk_rightprocess);
         // write_array(filepath, G_upperblk_rightprocess, blockSize);
     }
     else {
@@ -506,7 +510,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
             // write_array(filepath, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize);
             if (sym_mat) {
                 // matrix transpose
-                cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize); 
+                A.transposeBLAS(blockSize, G_lowerblk_rightprocess + i * blockSize * blockSize, G_upperblk_rightprocess + i * blockSize * blockSize);
                 // write_array(filepath, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize);
             }
             else {
