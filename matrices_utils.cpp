@@ -48,6 +48,15 @@ Matrix generateBandedDiagonalMatrix(int matrixSize, int matriceBandwidth, bool i
     }
     return A;
 }
+void makeMatrixBanded(int matrixSize, int matriceBandwidth, float* matrix) {
+    for (int i = 0; i < matrixSize; ++i) {
+        for (int j = 0; j < matrixSize; ++j) {
+            if (i - j > matriceBandwidth || j - i > matriceBandwidth) {
+                matrix[i * matrixSize+j] = 0;
+            }
+        }
+    }
+}
 
 Matrix generateFixedMatrixOfSize8 () {
     float given_matrix[8][8] = {

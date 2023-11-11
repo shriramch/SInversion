@@ -61,10 +61,11 @@ def test_rgf2sided(
     
     bandwidth    = np.ceil(blocksize/2)
     
-    A = utils.matu.generateBandedDiagonalMatrix(matrix_size, 
-                                                bandwidth, 
-                                                is_complex, 
-                                                is_symmetric, SEED)
+    A = utils.matu.generateFixedMatrixOfSize8()
+    # A = utils.matu.generateBandedDiagonalMatrix(matrix_size, 
+    #                                             bandwidth, 
+    #                                             is_complex, 
+    #                                             is_symmetric, SEED)
     
     A_diagblk, A_upperblk, A_lowerblk\
         = utils.matu.convertDenseToBlkTridiag(A, blocksize)
@@ -76,10 +77,10 @@ def test_rgf2sided(
         = utils.matu.convertDenseToBlkTridiag(A_refsol, blocksize)
     
     if comm_rank == 0:
-
+        print(utils.matu.convertBlkTridiagToDense(G_diagblk, G_upperblk, G_lowerblk))
         assert np.allclose(A_refsol_diagblk, G_diagblk)\
             and np.allclose(A_refsol_upperblk, G_upperblk)\
             and np.allclose(A_refsol_lowerblk, G_lowerblk)
         print("Test passed.")
 
-test_rgf2sided(True, True, 4, 1)
+test_rgf2sided(True, True, 8, 2)

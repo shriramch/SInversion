@@ -14,6 +14,11 @@ import numpy as np
 from mpi4py import MPI
 
 
+def output_numpy_array(file_path, array):
+    with open(file_path, 'ab') as file:  # Using 'ab' for appending in binary mode
+        # print(array.shape)
+        np.savetxt(file, array)
+        file.write(b'\n')  # Writing a newline character
 
 def rgf2sided(
     A_bloc_diag: np.ndarray, 
@@ -66,6 +71,8 @@ def rgf2sided(
         G_diagblk[nblocks_2:, ]  = comm.recv(source=1, tag=0)
         G_upperblk[nblocks_2:, ] = comm.recv(source=1, tag=1)
         G_lowerblk[nblocks_2:, ] = comm.recv(source=1, tag=2)
+        # for i in range(nblocks_2-1):
+        #     output_numpy_array("/Users/evan/SInversion/testpy/output0.txt",G_lowerblk[nblocks_2+i,])
 
     elif comm_rank == 1:
         G_diagblk[nblocks_2:, ]\
@@ -76,11 +83,13 @@ def rgf2sided(
                                      A_bloc_lower[nblocks_2-1:, ],
                                      sym_mat, save_off_diag)
         
+        # for i in range(nblocks_2-1):
+        #     output_numpy_array("/Users/evan/SInversion/testpy/output1.txt",G_lowerblk[nblocks_2+i,])
         comm.send(G_diagblk[nblocks_2:, ], dest=0, tag=0)
         comm.send(G_upperblk[nblocks_2:, ], dest=0, tag=1)
         comm.send(G_lowerblk[nblocks_2:, ], dest=0, tag=2)
-    
-
+        
+        
     return G_diagblk, G_upperblk, G_lowerblk
 
 
@@ -126,7 +135,10 @@ def rgf2sided_upperprocess(
 
     # Initialisation of g
     G_diagblk_leftprocess[0, ] = np.linalg.inv(A_diagblk_leftprocess[0, ])
-
+    
+    file_path = '/Users/evan/SInversion/testpy/output0.txt'
+    # output_numpy_array(file_path, G_diagblk_leftprocess[0, ])
+    
 
     # Forward substitution
     for i in range(1, nblocks):
@@ -135,12 +147,21 @@ def rgf2sided_upperprocess(
                 - A_lowerblk_leftprocess[i-1, ]\
                     @ G_diagblk_leftprocess[i-1, ]\
                     @ A_upperblk_leftprocess[i-1, ])
-
+        # output_numpy_array(file_path, A_lowerblk_leftprocess[i-1, ]\
+        #             @ G_diagblk_leftprocess[i-1, ])
+        # output_numpy_array(file_path, A_lowerblk_leftprocess[i-1, ]\
+        #             @ G_diagblk_leftprocess[i-1, ]\
+        #             @ A_upperblk_leftprocess[i-1, ])
+        # output_numpy_array(file_path, A_diagblk_leftprocess[i, ]\
+        #         - A_lowerblk_leftprocess[i-1, ]\
+        #             @ G_diagblk_leftprocess[i-1, ]\
+        #             @ A_upperblk_leftprocess[i-1, ])
+        # output_numpy_array(file_path, G_diagblk_leftprocess[i, ])
 
     # Communicate the left connected block and receive the right connected block
     comm.send(G_diagblk_leftprocess[nblocks-1, ], dest=1, tag=0)
     G_diagblk_leftprocess[nblocks, ] = comm.recv(source=1, tag=0)
-
+    # output_numpy_array(file_path, G_diagblk_leftprocess[nblocks, ])
 
     # Connection from both sides of the full G
     G_diagblk_leftprocess[nblocks-1, ]\
@@ -151,30 +172,41 @@ def rgf2sided_upperprocess(
             - A_upperblk_leftprocess[nblocks-1, ]\
                 @ G_diagblk_leftprocess[nblocks, ]\
                 @ A_lowerblk_leftprocess[nblocks-1, ])
+    # output_numpy_array(file_path, G_diagblk_leftprocess[nblocks-1, ])
 
 
     # Compute the shared off-diagonal upper block
+    output_numpy_array(file_path, G_diagblk_leftprocess[nblocks, ])
+    output_numpy_array(file_path, A_lowerblk_leftprocess[nblocks-1, ])
+    output_numpy_array(file_path, G_diagblk_leftprocess[nblocks, ] @ A_lowerblk_leftprocess[nblocks-1, ])
+    output_numpy_array(file_path, G_diagblk_leftprocess[nblocks, ] @ A_lowerblk_leftprocess[nblocks-1, ] @ G_diagblk_leftprocess[nblocks-1, ])
     G_lowerblk_leftprocess[nblocks-1, ] = -G_diagblk_leftprocess[nblocks, ] @ A_lowerblk_leftprocess[nblocks-1, ] @ G_diagblk_leftprocess[nblocks-1, ]
+    output_numpy_array(file_path, G_lowerblk_leftprocess[nblocks-1, ])
     if sym_mat:
         G_upperblk_leftprocess[nblocks-1, ] = G_lowerblk_leftprocess[nblocks-1, ].T
+        # output_numpy_array(file_path, G_upperblk_leftprocess[nblocks-1, ])
     else:
         G_upperblk_leftprocess[nblocks-1, ] = -G_diagblk_leftprocess[nblocks-1, ] @ A_upperblk_leftprocess[nblocks-1, ] @ G_diagblk_leftprocess[nblocks, ]
-
+        # output_numpy_array(file_path, G_upperblk_leftprocess[nblocks-1, ])
 
     # Backward substitution
     for i in range(nblocks-2, -1, -1):
         g_ii = G_diagblk_leftprocess[i, ]
+        # output_numpy_array(file_path, g_ii)
         G_lowerfactor = G_diagblk_leftprocess[i+1, ] @ A_lowerblk_leftprocess[i, ] @ g_ii
-        
+        # output_numpy_array(file_path, G_lowerfactor)
         if save_off_diag:
             G_lowerblk_leftprocess[i, ] = -G_lowerfactor
+            output_numpy_array(file_path, G_lowerblk_leftprocess[i, ])
             if sym_mat:
                 G_upperblk_leftprocess[i, ] = G_lowerblk_leftprocess[i, ].T
+                # output_numpy_array(file_path, G_upperblk_leftprocess[i, ])
             else:
                 G_upperblk_leftprocess[i, ] = -g_ii @ A_upperblk_leftprocess[i, ] @ G_diagblk_leftprocess[i+1, ]
-        
-        G_diagblk_leftprocess[i, ]  = g_ii + g_ii @ A_upperblk_leftprocess[i, ] @ G_lowerfactor
+                # output_numpy_array(file_path, G_upperblk_leftprocess[i, ])
 
+        G_diagblk_leftprocess[i, ]  = g_ii + g_ii @ A_upperblk_leftprocess[i, ] @ G_lowerfactor
+        # output_numpy_array(file_path, G_diagblk_leftprocess[i, ])
 
     return G_diagblk_leftprocess[:nblocks, ], G_upperblk_leftprocess, G_lowerblk_leftprocess
 
@@ -221,7 +253,8 @@ def rgf2sided_lowerprocess(
 
     # Initialisation of g
     G_diagblk_rightprocess[-1, ] = np.linalg.inv(A_diagblk_rightprocess[-1, ])
-
+    file_path = '/Users/evan/SInversion/testpy/output1.txt'
+    # output_numpy_array(file_path, G_diagblk_rightprocess[-1, ])
 
     # Forward substitution
     for i in range(nblocks-1, 0, -1):
@@ -230,11 +263,12 @@ def rgf2sided_lowerprocess(
                 - A_upperblk_rightprocess[i, ]\
                     @ G_diagblk_rightprocess[i+1, ]\
                     @ A_lowerbk_rightprocess[i, ])
-
+        # output_numpy_array(file_path, G_diagblk_rightprocess[i, ])
 
     # Communicate the right connected block and receive the left connected block
     G_diagblk_rightprocess[0, ] = comm.recv(source=0, tag=0)
     comm.send(G_diagblk_rightprocess[1, ], dest=0, tag=0)
+    # output_numpy_array(file_path, G_diagblk_rightprocess[0, ])
 
 
     # Connection from both sides of the full G
@@ -246,15 +280,17 @@ def rgf2sided_lowerprocess(
             - A_upperblk_rightprocess[1, ]\
                 @ G_diagblk_rightprocess[2, ]\
                 @ A_lowerbk_rightprocess[1, ])
-
+    # output_numpy_array(file_path, G_diagblk_rightprocess[1, ])
 
     # Compute the shared off-diagonal upper block
     G_lowerblk_rightprocess[0, ] = G_diagblk_rightprocess[1, ] @ A_lowerbk_rightprocess[0, ] @ G_diagblk_rightprocess[0, ]
+    output_numpy_array(file_path, G_lowerblk_rightprocess[0, ])
     if sym_mat:
         G_upperblk_rightprocess[0, ] = G_lowerblk_rightprocess[0, ].T
+        # output_numpy_array(file_path, G_upperblk_rightprocess[0, ])
     else:
         G_upperblk_rightprocess[0, ] = G_diagblk_rightprocess[0, ] @ A_upperblk_rightprocess[0, ] @ G_diagblk_rightprocess[1, ]
-
+        # output_numpy_array(file_path, G_upperblk_rightprocess[0, ])
 
     # Backward substitution
     for i in range(1, nblocks):
@@ -263,12 +299,15 @@ def rgf2sided_lowerprocess(
         
         if save_off_diag:
             G_lowerblk_rightprocess[i, ] = -G_lowerfactor
+            output_numpy_array(file_path, G_lowerblk_rightprocess[i, ])
             if sym_mat:
                 G_upperblk_rightprocess[i, ] = G_lowerblk_rightprocess[i, ].T
+                # output_numpy_array(file_path, G_upperblk_rightprocess[i, ])
             else:
                 G_upperblk_rightprocess[i, ] = -G_diagblk_rightprocess[i, ] @ A_upperblk_rightprocess[i, ] @ g_ii
-        
+                # output_numpy_array(file_path, G_upperblk_rightprocess[i, ])
         G_diagblk_rightprocess[i+1, ]  = g_ii + G_lowerfactor @ A_upperblk_rightprocess[i, ] @ g_ii
-        
-        
+        # output_numpy_array(file_path, G_diagblk_rightprocess[i+1, ])
+    
+    
     return G_diagblk_rightprocess[1:,], G_upperblk_rightprocess, G_lowerblk_rightprocess

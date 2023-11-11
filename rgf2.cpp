@@ -1,4 +1,5 @@
 #include "rgf2.hpp"
+#include <fstream>
 
 Matrix::~Matrix() {
     delete[] mat;
@@ -167,7 +168,23 @@ bool Matrix::compareDiagonals(const Matrix& other) {
     }
     return true;
 }
-
+void write_array(std::string filepath, float* array, int size) {
+    std::ofstream outputFile;
+    outputFile.open(filepath, std::ios::app); // Open the file in append mode
+    if (outputFile.is_open()) {
+        for(int i = 0; i < size; ++i) {
+            for(int j = 0; j < size; ++j) {
+                outputFile << array[i * size + j] << " ";
+            }
+            outputFile << std::endl;
+        }
+        outputFile << std::endl;
+        outputFile.close();
+        // std::cout << "Matrix appended to file." << std::endl;
+    } else {
+        std::cout << "Unable to open the file." << std::endl;
+    }
+}
 void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag 
                ) {
     int processRank, blockSize, matrixSize;
@@ -192,20 +209,30 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat , bool save_off_diag
         MPI_Recv((void *)(G.lodiag + nblocks_2 * blockSize * blockSize), 
                 (nblocks_2-1) * blockSize * blockSize, MPI_FLOAT, 1, 2,
                 MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        // for(int i = 0; i < nblocks_2-1; ++i) {
+        //     write_array("/Users/evan/SInversion/output0.txt", G.lodiag + (nblocks_2+i)*blockSize*blockSize, blockSize);
+        // }
+        
     } else if (processRank == 1) {
-        rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat, save_off_diag);
+        Matrix G_dup(matrixSize, G.getMat());
+        G_dup.convertDenseToBlkTridiag(blockSize);
+        rgf2sided_lowerprocess(A, G_dup, nblocks - nblocks_2, sym_mat, save_off_diag);
         // float send_buffer = 100.1;
         // MPI_Send((const void *)&send_buffer, 1, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
         // G.printB();
         // should I replicate G?
-        MPI_Send((const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
+        // for(int i = 0; i < nblocks_2-1; ++i) {
+        //     write_array("/Users/evan/SInversion/output1.txt", G_dup.lodiag + (nblocks_2+i)*blockSize*blockSize, blockSize);
+        // }
+        MPI_Send((const void *)(G_dup.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
-        MPI_Send((const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
+        MPI_Send((const void *)(G_dup.updiag + nblocks_2 * blockSize * blockSize),
                  (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 1, MPI_COMM_WORLD);
-        MPI_Send((const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
+        MPI_Send((const void *)(G_dup.lodiag + nblocks_2 * blockSize * blockSize),
                  (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 2, MPI_COMM_WORLD);
     }
 }
+
 
 // References based implementation
 void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
@@ -225,20 +252,29 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     float *temp_result_1 = new float[blockSize * blockSize]();    
     float *temp_result_2 = new float[blockSize * blockSize]();
+    float *temp_result_3 = new float[blockSize * blockSize]();
+    float *temp_result_4 = new float[blockSize * blockSize]();
+
     float* zeros = new float[blockSize * blockSize](); 
 
     // Initialisation of g - invert first block
     A.invBLAS(blockSize, A_diagblk_leftprocess, G_diagblk_leftprocess); 
-    
+    std::string filepath("/Users/evan/SInversion/output0.txt");
+    // write_array(filepath, G_diagblk_leftprocess, blockSize);
+
     // Forward substitution
     for (int i = 1; i < nblocks_2; ++i) {
         A.mmmBLAS(blockSize, A_lowerblk_leftprocess + (i-1) * blockSize * blockSize, 
                    G_diagblk_leftprocess + (i-1) * blockSize * blockSize, temp_result_1);
+        // write_array(filepath, temp_result_1, blockSize);
         A.mmmBLAS(blockSize, temp_result_1, A_upperblk_leftprocess + (i-1) * blockSize * blockSize, 
-                   temp_result_1); // 
-        A.mmSub(blockSize, A_diagblk_leftprocess + i * blockSize * blockSize, temp_result_1, 
-                 temp_result_1); 
-        A.invBLAS(blockSize, temp_result_1, G_diagblk_leftprocess + i * blockSize * blockSize);
+                   temp_result_2); // 
+        // write_array(filepath, temp_result_2, blockSize);
+        A.mmSub(blockSize, A_diagblk_leftprocess + i * blockSize * blockSize, temp_result_2, 
+                 temp_result_2); 
+        // write_array(filepath, temp_result_2, blockSize);
+        A.invBLAS(blockSize, temp_result_2, G_diagblk_leftprocess + i * blockSize * blockSize);
+        // write_array(filepath, G_diagblk_leftprocess + i * blockSize * blockSize, blockSize);
     }
 
     // Communicate the left connected block and receive the right connected block
@@ -246,70 +282,78 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
              MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
     MPI_Recv((void *)(G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize), blockSize * blockSize, 
              MPI_FLOAT, 1, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_leftprocess[nblocks_2 * blockSize * blockSize + i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
+    // write_array(filepath, G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize, blockSize);
 
     // Connection from both sides of the full G
     A.mmmBLAS(blockSize, A_lowerblk_leftprocess + (nblocks_2-2)*blockSize*blockSize, 
                G_diagblk_leftprocess + (nblocks_2-2)*blockSize*blockSize, temp_result_1);
     A.mmmBLAS(blockSize, temp_result_1, A_upperblk_leftprocess + (nblocks_2-2)*blockSize*blockSize, 
-               temp_result_1);
-    A.mmmBLAS(blockSize, A_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, 
-               G_diagblk_leftprocess + (nblocks_2)*blockSize*blockSize, temp_result_2);
-    A.mmmBLAS(blockSize, temp_result_2, A_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, 
                temp_result_2);
-    A.mmSub(blockSize, A_diagblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, temp_result_1, 
-             temp_result_1);
-    A.mmSub(blockSize, temp_result_1, temp_result_2, temp_result_1);
-    A.invBLAS(blockSize, temp_result_1, G_diagblk_leftprocess + (nblocks_2-1)*blockSize*blockSize);
+    
+    A.mmmBLAS(blockSize, A_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, 
+               G_diagblk_leftprocess + (nblocks_2)*blockSize*blockSize, temp_result_3);
+    A.mmmBLAS(blockSize, temp_result_3, A_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, 
+               temp_result_4);
+    A.mmSub(blockSize, A_diagblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, temp_result_2, 
+             temp_result_2);
+    A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2);
+    A.invBLAS(blockSize, temp_result_2, G_diagblk_leftprocess + (nblocks_2-1)*blockSize*blockSize);
+    // write_array(filepath, G_diagblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
 
     // Compute the shared off-diagonal upper block
+    write_array(filepath, G_diagblk_leftprocess + nblocks_2*blockSize*blockSize, blockSize);
+    write_array(filepath, A_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
     A.mmmBLAS(blockSize, G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize, 
                A_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, 
                temp_result_1);
+    write_array(filepath, temp_result_1, blockSize);
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, 
-               temp_result_1);
-
-    A.mmSub(blockSize, zeros, temp_result_1, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize);
+               temp_result_2);
+    write_array(filepath, temp_result_2, blockSize);
+    A.mmSub(blockSize, zeros, temp_result_2, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize);
+    write_array(filepath, G_lowerblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, blockSize);
     if (sym_mat) {
         // matrix transpose
         cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize); 
+        // write_array(filepath, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
     }
     else {
         A.mmmBLAS(blockSize, G_diagblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, 
                A_upperblk_leftprocess + (nblocks_2-1) * blockSize * blockSize, 
                temp_result_1);
         A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess + (nblocks_2) * blockSize * blockSize, 
-               temp_result_1);
-        A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_leftprocess + (nblocks_2-1) * blockSize * blockSize);
+               temp_result_2);
+        A.mmSub(blockSize, zeros, temp_result_2, G_upperblk_leftprocess + (nblocks_2-1) * blockSize * blockSize);
+        // write_array(filepath, G_upperblk_leftprocess + (nblocks_2-1)*blockSize*blockSize, blockSize);
     }
 
     // Backward substitution
     for (int i = nblocks_2 - 2; i >= 0; i -= 1) {
         float *g_ii = G_diagblk_leftprocess + i * blockSize * blockSize;
+        // write_array(filepath, g_ii, blockSize);
         float *G_lowerfactor = new float[blockSize * blockSize];
         A.mmmBLAS(blockSize, G_diagblk_leftprocess+(i+1)*blockSize*blockSize, A_lowerblk_leftprocess+i*blockSize*blockSize, temp_result_1);
         A.mmmBLAS(blockSize, temp_result_1, g_ii, G_lowerfactor);
-
+        // write_array(filepath, G_lowerfactor, blockSize);
         if (save_off_diag) {
-            A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_leftprocess+i*blockSize*blockSize);
+            A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_leftprocess + i*blockSize*blockSize);
+            write_array(filepath, G_lowerblk_leftprocess + i*blockSize*blockSize, blockSize);
             if(sym_mat) {
                 // matrix transpose
                 cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_leftprocess + (i)*blockSize*blockSize, blockSize, G_upperblk_leftprocess + (i)*blockSize*blockSize, blockSize);
+                // write_array(filepath, G_upperblk_leftprocess + (i)*blockSize*blockSize, blockSize);
             }
             else {
                 A.mmmBLAS(blockSize, g_ii, A_upperblk_leftprocess+i*blockSize*blockSize, temp_result_1);
-                A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess+(i+1)*blockSize*blockSize, temp_result_1);
-                A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_leftprocess+i*blockSize*blockSize);
+                A.mmmBLAS(blockSize, temp_result_1, G_diagblk_leftprocess+(i+1)*blockSize*blockSize, temp_result_2);
+                A.mmSub(blockSize, zeros, temp_result_2, G_upperblk_leftprocess + i*blockSize*blockSize);
+                // write_array(filepath, G_upperblk_leftprocess+i*blockSize*blockSize, blockSize);
             }
         }
         A.mmmBLAS(blockSize, g_ii, A_upperblk_leftprocess+i*blockSize*blockSize, temp_result_1);
-        A.mmmBLAS(blockSize, temp_result_1, G_lowerfactor, temp_result_1);
-        A.mmAdd(blockSize, g_ii, temp_result_1, G_diagblk_leftprocess+i*blockSize*blockSize);
+        A.mmmBLAS(blockSize, temp_result_1, G_lowerfactor, temp_result_2);
+        A.mmAdd(blockSize, g_ii, temp_result_2, G_diagblk_leftprocess+i*blockSize*blockSize);
+        // write_array(filepath, G_diagblk_leftprocess+i*blockSize*blockSize, blockSize);
         delete[] G_lowerfactor;
     }
 
@@ -324,6 +368,8 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     delete[] G_lowerblk_leftprocess;
     delete[] temp_result_1;
     delete[] temp_result_2;
+    delete[] temp_result_3;
+    delete[] temp_result_4;
     delete[] zeros;
 
     return;
@@ -346,96 +392,53 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     float *temp_result_1 = new float[blockSize * blockSize]();    
     float *temp_result_2 = new float[blockSize * blockSize]();
+
+    float *temp_result_3 = new float[blockSize * blockSize]();
+    float *temp_result_4 = new float[blockSize * blockSize]();
     float* zeros = new float[blockSize * blockSize](); 
 
-    // Initialisation of g - invert first block
-    // printf("A_diagblk_rightprocess[-1]: %f\n", *(A_diagblk_rightprocess+(nblocks_2-1)*blockSize*blockSize));
-    // printf("G_diagblk_rightprocess[-1]: %f\n", *(G_diagblk_rightprocess+(nblocks_2)*blockSize*blockSize));
     A.invBLAS(blockSize, A_diagblk_rightprocess + (nblocks_2-1)*blockSize*blockSize, G_diagblk_rightprocess + nblocks_2*blockSize*blockSize); 
-    // printf("A_diagblk_rightprocess[-1]: %f\n", *(A_diagblk_rightprocess+(nblocks_2-1)*blockSize*blockSize));
-    // printf("G_diagblk_rightprocess[-1]: %f\n", *(G_diagblk_rightprocess+(nblocks_2)*blockSize*blockSize));
-    
+    std::string filepath = "/Users/evan/SInversion/output1.txt";
+    // write_array(filepath, G_diagblk_rightprocess + nblocks_2*blockSize*blockSize, blockSize);
+
     // Forward substitution
     for (int i = nblocks_2-1; i >= 1; i -= 1) {
         A.mmmBLAS(blockSize, A_upperblk_rightprocess + i * blockSize * blockSize, 
                    G_diagblk_rightprocess + (i+1) * blockSize * blockSize, temp_result_1);
-        // if(i == nblocks_2-1) {
-        //     printf("A_upperblk_rightprocess[i]: %f\n", *(A_upperblk_rightprocess+(i)*blockSize*blockSize));
-        //     printf("G_diagblk_rightprocess[i+1]: %f\n", *(G_diagblk_rightprocess+(i+1)*blockSize*blockSize));
-        //     printf("temp_result_1: %f\n", *temp_result_1);
-        // }
+        
         A.mmmBLAS(blockSize, temp_result_1, A_lowerbk_rightprocess + i * blockSize * blockSize, 
-                   temp_result_1);
-        // if(i == nblocks_2-1) {
-        //     printf("A_lowerbk_rightprocess[i]: %f\n", *(A_lowerbk_rightprocess+(i)*blockSize*blockSize));
-        //     printf("temp_result_1: %f\n", *temp_result_1);        
-        // }
-        A.mmSub(blockSize, A_diagblk_rightprocess + (i-1) * blockSize * blockSize, temp_result_1, 
-                 temp_result_1); 
-        // if(i == nblocks_2-1) {
-        //     printf("A_diagblk_rightprocess[i]: %f\n", *(A_diagblk_rightprocess+(i-1)*blockSize*blockSize));
-        //     printf("temp_result_1: %f\n", *temp_result_1);        
-        // }
-        A.invBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + i * blockSize * blockSize);
-        // if(i == nblocks_2-1) {
-        //     printf("G_diagblk_rightprocess[i]: %f\n", *(G_diagblk_rightprocess + i * blockSize * blockSize));        
-        //     printf("temp_result_1: %f\n", *temp_result_1);
-        // }
+                   temp_result_2);
+        
+        A.mmSub(blockSize, A_diagblk_rightprocess + (i-1) * blockSize * blockSize, temp_result_2, 
+                 temp_result_2); 
+
+        A.invBLAS(blockSize, temp_result_2, G_diagblk_rightprocess + i * blockSize * blockSize);
+        
+        // write_array(filepath, G_diagblk_rightprocess + i * blockSize * blockSize, blockSize);
     }
 
     // Communicate the right connected block and receive the right connected block
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_rightprocess[i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
     
     MPI_Recv((void *)(G_diagblk_rightprocess), blockSize * blockSize, 
              MPI_FLOAT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_rightprocess[i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
-    
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_rightprocess[blockSize * blockSize + i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
     MPI_Send((const void *)(G_diagblk_rightprocess + 1 * blockSize * blockSize) , blockSize * blockSize, 
              MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_rightprocess[blockSize * blockSize + i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
-    
+    // write_array(filepath, G_diagblk_rightprocess, blockSize);
 
     // Connection from both sides of the full G
     A.mmmBLAS(blockSize, A_lowerbk_rightprocess, 
                G_diagblk_rightprocess, temp_result_1);
     A.mmmBLAS(blockSize, temp_result_1, A_upperblk_rightprocess, 
-               temp_result_1);
-    A.mmmBLAS(blockSize, A_upperblk_rightprocess + (1)*blockSize*blockSize, 
-               G_diagblk_rightprocess + (2)*blockSize*blockSize, temp_result_2);
-    A.mmmBLAS(blockSize, temp_result_2, A_lowerbk_rightprocess + (1)*blockSize*blockSize, 
                temp_result_2);
-    A.mmSub(blockSize, A_diagblk_rightprocess, temp_result_1, 
-             temp_result_1);
-    A.mmSub(blockSize, temp_result_1, temp_result_2, temp_result_1);
-    A.invBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + (1)*blockSize*blockSize);
-
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_rightprocess[blockSize * blockSize + i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
+    A.mmmBLAS(blockSize, A_upperblk_rightprocess + (1)*blockSize*blockSize, 
+               G_diagblk_rightprocess + (2)*blockSize*blockSize, temp_result_3);
+    A.mmmBLAS(blockSize, temp_result_3, A_lowerbk_rightprocess + (1)*blockSize*blockSize, 
+               temp_result_4);
+    A.mmSub(blockSize, A_diagblk_rightprocess, temp_result_2, 
+             temp_result_2);
+    A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2);
+    A.invBLAS(blockSize, temp_result_2, G_diagblk_rightprocess + (1)*blockSize*blockSize);
+    // write_array(filepath, G_diagblk_rightprocess + (1)*blockSize*blockSize, blockSize);
 
     // Compute the shared off-diagonal upper block
     A.mmmBLAS(blockSize, G_diagblk_rightprocess + 1 * blockSize * blockSize, 
@@ -443,10 +446,11 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                temp_result_1);
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess, 
                G_lowerblk_rightprocess);
-    /// stop here
+    write_array(filepath, G_lowerblk_rightprocess, blockSize);    
     if (sym_mat) {
         // matrix transpose
         cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess, blockSize, G_upperblk_rightprocess, blockSize); 
+        // write_array(filepath, G_upperblk_rightprocess, blockSize);
     }
     else {
         A.mmmBLAS(blockSize, G_diagblk_rightprocess, 
@@ -454,6 +458,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                temp_result_1);
         A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + 1 * blockSize*blockSize, 
                G_upperblk_rightprocess);
+        // write_array(filepath, G_upperblk_rightprocess, blockSize);
     }
 
     // Backward substitution
@@ -464,42 +469,47 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess + i * blockSize * blockSize, G_lowerfactor);
         if (save_off_diag) {
             A.mmSub(blockSize, zeros, G_lowerfactor, G_lowerblk_rightprocess + i * blockSize * blockSize);
+            write_array(filepath, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize);
             if (sym_mat) {
                 // matrix transpose
                 cblas_somatcopy(CblasRowMajor, CblasTrans, blockSize, blockSize, 1.0f, G_lowerblk_rightprocess + i * blockSize * blockSize, blockSize, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize); 
+                // write_array(filepath, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize);
             }
             else {
                 A.mmmBLAS(blockSize, G_diagblk_rightprocess + i*blockSize*blockSize, 
                     A_upperblk_rightprocess + i*blockSize*blockSize, 
                     temp_result_1);
                 A.mmmBLAS(blockSize, temp_result_1, g_ii, 
-                    temp_result_1);
-                A.mmSub(blockSize, zeros, temp_result_1, G_upperblk_rightprocess + i * blockSize * blockSize);
+                    temp_result_2);
+                A.mmSub(blockSize, zeros, temp_result_2, G_upperblk_rightprocess + i * blockSize * blockSize);
+                // write_array(filepath, G_upperblk_rightprocess + i * blockSize * blockSize, blockSize);
             }
         }
         A.mmmBLAS(blockSize, G_lowerfactor, 
                     A_upperblk_rightprocess + i*blockSize*blockSize, 
                     temp_result_1);
         A.mmmBLAS(blockSize, temp_result_1, g_ii, 
-                    temp_result_1);
-        A.mmAdd(blockSize, g_ii, temp_result_1, G_diagblk_rightprocess + (i+1)*blockSize*blockSize);
+                    temp_result_2);
+        A.mmAdd(blockSize, g_ii, temp_result_2, G_diagblk_rightprocess + (i+1)*blockSize*blockSize);
+        // write_array(filepath, G_diagblk_rightprocess + (i+1)*blockSize*blockSize, blockSize);
     }
-    // for (int i = 0; i < blockSize; ++i) {
-    //     for (int j = 0; j < blockSize; ++j) {
-    //         cout << G_diagblk_rightprocess[blockSize*blockSize + i * blockSize + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
+    
     memcpy(G.mdiag + nblocks_2*blockSize*blockSize, G_diagblk_rightprocess+blockSize*blockSize, nblocks_2 * blockSize * blockSize * sizeof(float));
     memcpy(G.updiag + (nblocks_2-1)*blockSize*blockSize, G_upperblk_rightprocess, nblocks_2 * blockSize * blockSize * sizeof(float));
     memcpy(G.lodiag + (nblocks_2-1)*blockSize*blockSize, G_lowerblk_rightprocess, nblocks_2 * blockSize * blockSize * sizeof(float));
     
+    // for(int i = 0; i < nblocks_2; ++i) {
+    //     write_array(filepath, G.lodiag + (nblocks_2-1+i)*blockSize*blockSize, blockSize);
+    // }
+
     delete[] G_diagblk_rightprocess;
     delete[] G_upperblk_rightprocess;
     delete[] G_lowerblk_rightprocess;
     delete[] temp_result_1;
     delete[] temp_result_2;
     delete[] zeros;
+    delete[] temp_result_3;
+    delete[] temp_result_4;
 
     return;
 }
