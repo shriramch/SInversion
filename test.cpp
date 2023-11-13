@@ -155,5 +155,6 @@ int main(int argc, const char* argv[]) {
         printf("or (file mode): mpirun -np 2 %s -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true> -f <inputPath>\n", bin_name);
         return 1;
     }
-
+    MPI_Finalize();
+    return 0;
 }
