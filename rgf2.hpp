@@ -1,28 +1,16 @@
-#ifndef RGF
-#define RGF
-#include <bits/stdc++.h>
-#include <cblas.h>
-#include <lapacke.h>
+#pragma once
+#include "matrices_utils.hpp"
+#include <assert.h>
+#include <cstring>
+#include <fstream>
+#include <iostream>
 #include <mpi.h>
 
-using namespace std;
+class Matrix; // Forward declaration
 
-class Matrix {
-    int n, B;
-    float *mat;
-
-public:
-    float *mdiag, *updiag, *lodiag;
-    Matrix(int);
-    Matrix(int, float *);
-    Matrix(float *, float *, float *);
-    void convert3D(int);
-    void printM();
-    void printB();
-    void get(int &, int &);
-    void MMM_BLAS(int, float *, float *, float *);
-    void MMM_noob(int, float *, float *, float *);
-    void mat_INV(int n, const float *A, float *result);
-};
-
-#endif
+void rgf2sided(Matrix &A, Matrix &G, bool sym_mat = false,
+               bool save_off_diag = true);
+void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2,
+                            bool sym_mat = false, bool save_off_diag = true);
+void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2,
+                            bool sym_mat = false, bool save_off_diag = true);

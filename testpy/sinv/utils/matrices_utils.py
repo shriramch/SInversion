@@ -1,21 +1,13 @@
 """
 @author: Vincent Maillou (vmaillou@iis.ee.ethz.ch)
-@date: 2023-07
+@date: 2023-05
 
 Copyright 2023 ETH Zurich and the QuaTrEx authors. All rights reserved.
 """
 
-from os import environ
-environ['OMP_NUM_THREADS'] = '1'
-
-# from sinv.algorithms import rgf2s
-# from sinv import utils
-
 import numpy as np
-import pytest
-# from mpi4py import MPI
 
-SEED = 63
+
 
 def generateRandomNumpyMat(
     matrice_size: int, 
@@ -195,87 +187,18 @@ def convertBlkTridiagToDense(
             A[(i+1)*blocksize:(i+2)*blocksize, i*blocksize:(i+1)*blocksize] = A_lowerblk[i, ]
             
     return A
-
-
-""" Uniform blocksize tests cases
-- Complex and real matrices
-- Symmetric and non-symmetric matrices
-================================================
-| Test n  | Matrice size | Blocksize | nblocks | 
-================================================
-| Test 1  |     4x4      |     1     |    4    |
-| Test 2  |     8x8      |     2     |    4    |
-| Test 3  |    12x12     |     3     |    4    |
-================================================
-| Test 4  |   128x128    |     8     |   16    |
-| Test 5  |   128x128    |     16    |    8    |
-| Test 6  |   128x128    |     32    |    4    |
-================================================ """
-@pytest.mark.mpi(min_size=2)
-@pytest.mark.parametrize("is_complex", [False, True])
-@pytest.mark.parametrize("is_symmetric", [False, True])
-@pytest.mark.parametrize(
-    "matrix_size, blocksize",
-    [
-        (4, 1),
-        (8, 2),
-        (12, 3),
-        (128, 8),
-        (128, 16),
-        (128, 32),
+    
+def generateFixedMatrixOfSize8():
+    given_matrix = [
+    [0.11214, 0.976047, 0, 0, 0, 0, 0, 0],
+    [0.976047, 0.423681, 0.434601, 0, 0, 0, 0, 0],
+    [0, 0.434601, 0.337407, 0.218091, 0, 0, 0, 0],
+    [0, 0, 0.218091, 0.452596, 0.381082, 0, 0, 0],
+    [0, 0, 0, 0.381082, 0.845901, 0.514452, 0, 0],
+    [0, 0, 0, 0, 0.514452, 0.392368, 0.065431, 0],
+    [0, 0, 0, 0, 0, 0.065431, 0.698868, 0.690582],
+    [0, 0, 0, 0, 0, 0, 0.690582, 0.606674]
     ]
-)
-def test_rgf2sided(
-    is_complex: bool,
-    is_symmetric: bool,
-    matrix_size: int,
-    blocksize: int
-):
-    """ Test the RGF 2-Sided algorithm. """
-    # comm = MPI.COMM_WORLD
-    # comm_rank = comm.Get_rank()
-    
-    bandwidth    = np.ceil(blocksize/2)
-    
-    A = generateBandedDiagonalMatrix(matrix_size, 
-                                                bandwidth, 
-                                                is_complex, 
-                                                is_symmetric, SEED)
-    
-    A_diagblk, A_upperblk, A_lowerblk\
-        = convertDenseToBlkTridiag(A, blocksize)
-
-    return A, A_diagblk, A_upperblk, A_lowerblk
-    
-    # G_diagblk, G_upperblk, G_lowerblk\
-    #     = rgf2s.rgf2sided(A_diagblk, A_upperblk, A_lowerblk, is_symmetric)
-
-    # A_refsol = np.linalg.inv(A)
-    # A_refsol_diagblk, A_refsol_upperblk, A_refsol_lowerblk\
-    #     = utils.matu.convertDenseToBlkTridiag(A_refsol, blocksize)
-    
-    # if comm_rank == 0:
-    #     assert np.allclose(A_refsol_diagblk, G_diagblk)\
-    #         and np.allclose(A_refsol_upperblk, G_upperblk)\
-    #         and np.allclose(A_refsol_lowerblk, G_lowerblk)
-        
-A, B, C, D = test_rgf2sided(0, 1, 8, 2)
-
-print (A)
-
-for i in range(A.shape[0]):
-    for j in range(A.shape[1]):
-        print (round(A[i][j], 2), end='\t')
-
-    print()
-
-print (D.shape)
-
-for i in range(D.shape[0]):
-    for j in range(D.shape[1]):
-        for k in range(D.shape[2]):
-            print (round(D[i][j][k], 2), end='\t')
-
-        print()
-    print()
+    matrix_np = np.array(given_matrix)
+    return matrix_np
 
