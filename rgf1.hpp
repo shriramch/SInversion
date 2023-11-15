@@ -1,5 +1,4 @@
-#ifndef RGF
-#define RGF
+#pragma once
 #include <bits/stdc++.h>
 #include <cblas.h>
 #include <lapacke.h>
@@ -30,4 +29,4 @@ void mat_ADD(int, float *, float *, float *);
 void matK(int, float *, int, float *);
 void matT(int, float *, float *);
 
-#endif
+void rgf(Matrix &, Matrix &, bool, bool);

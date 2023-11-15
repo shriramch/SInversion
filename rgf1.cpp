@@ -117,6 +117,16 @@ void Matrix::printB() {
     }
 }
 
+void print(float *A, int N) {
+    cout << "Matrix: " << endl;
+    for (int i = 0; i < N; ++i) {
+        for (int j = 0; j < N; ++j) {
+            cout << A[i * N + j] << " ";
+        }
+        cout << endl;
+    }
+}
+
 void Matrix::get(int &t, int &u) { t = B, u = n; }
 
 void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
@@ -124,6 +134,11 @@ void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
     int B, n;
     A.get(B, n);
     mat_INV(B, A.mdiag, G.mdiag);
+
+    // cout << "A" << endl;
+    // print(A.mdiag, 1);
+    // cout << "G" << endl;
+    // print(G.mdiag, 1);
 
     int nB = n / B;
     for (int i = 1; i < nB; ++i) {
@@ -136,10 +151,17 @@ void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
         free(AAi), free(AGi);
     }
 
+    // for (int i = 0; i < nB; ++i) {
+    //     cout << "G.mdiag " << i << endl;
+    //     print(&(G.mdiag[i]), B);
+    // }
+
     for (int i = nB - 2; i >= 0; --i) {
         float *Glf = new float[B * B], *Glf1 = new float[B * B];
         MMM_BLAS(B, &(G.mdiag[i + 1]), &(A.lodiag[i]), Glf1);
         MMM_BLAS(B, Glf1, &(G.mdiag[i]), Glf);
+
+        // print(Glf, B);
 
         if (save_off_diag) {
             matK(B, Glf, -1, &(G.lodiag[i]));
@@ -148,8 +170,10 @@ void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
             } else {
                 float *Guf = new float[B * B], *Guf1 = new float[B * B];
                 MMM_BLAS(B, &(A.updiag[i]), &(G.mdiag[i + 1]), Guf1);
-                MMM_BLAS(B, &(G.updiag[i]), Guf1, Guf);
+                MMM_BLAS(B, &(G.mdiag[i]), Guf1, Guf);
                 matK(B, Guf, -1, &(G.updiag[i]));
+
+                // print(&(G.updiag[i]), B);
 
                 free(Guf), free(Guf1);
             }
@@ -157,30 +181,30 @@ void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
 
         MMM_BLAS(B, &(A.updiag[i]), Glf, Glf1);
         MMM_BLAS(B, &(G.mdiag[i]), Glf1, Glf);
-        mat_ADD(B, &(G.mdiag[i]), Glf1, &(G.mdiag[i]));
+        mat_ADD(B, &(G.mdiag[i]), Glf, &(G.mdiag[i]));
 
         free(Glf), free(Glf1);
     }
 }
 
-int main() {
-    float *t = new float[16];
-    for (int i = 0; i < 4; ++i) {
-        for (int j = max(i - 1, 0); j < min(i + 2, 4); ++j) {
-            t[4 * i + j] = 5;
-        }
-    }
-    Matrix m(4, t), f(4);
-    m.printM();
-    m.DensetoB3D(1);
-    f.DensetoB3D(1);
-    // m.printB();
-    rgf(m, f);
-    // f.printB();
-    f.B3DtoDense();
-    f.printM();
-    return 0;
-}
+// int main() {
+//     float *t = new float[16];
+//     for (int i = 0; i < 4; ++i) {
+//         for (int j = max(i - 1, 0); j < min(i + 2, 4); ++j) {
+//             t[4 * i + j] = 5;
+//         }
+//     }
+//     Matrix m(4, t), f(4);
+//     m.printM();
+//     m.DensetoB3D(1);
+//     f.DensetoB3D(1);
+//     // m.printB();
+//     rgf(m, f);
+//     // f.printB();
+//     f.B3DtoDense();
+//     f.printM();
+//     return 0;
+// }
 
 void MMM_BLAS(int n, float *A, float *B, float *result) {
     const CBLAS_ORDER order = CblasRowMajor;
