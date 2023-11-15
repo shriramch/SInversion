@@ -42,6 +42,7 @@ public:
     void invBLAS(int n, const float *A, float *result); // correct
     void mmAdd(int n, float *A, float *B, float *result);
     void mmSub(int n, float *A, float *B, float *result);
+    void matScale(int n, float *A, int k, float *result);
     void transposeBLAS(int n, float *A, float *result);
     ~Matrix();
 };

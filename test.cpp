@@ -1,8 +1,9 @@
 #include "argparse.h"
 #include "matrices_utils.hpp"
 #include "rgf2.hpp"
-#include <stdio.h>
+#include "rgf1.hpp"
 
+#include <stdio.h>
 #include <cmath>
 #include <functional>
 #include <iostream>
@@ -20,6 +21,13 @@ void rgf2sidedAlgorithm(Matrix &input, Matrix &result, int matrixSize,
                         int blockSize, bool is_symmetric = false,
                         bool save_off_diag = true) {
     rgf2sided(input, result, is_symmetric, save_off_diag);
+}
+
+// follow this convention -- redundant - to change later
+void rgf1sidedAlgorithm(Matrix &input, Matrix &result, int matrixSize,
+                        int blockSize, bool is_symmetric = false,
+                        bool save_off_diag = true) {
+    rgf1sided(input, result, is_symmetric, save_off_diag);
 }
 
 // Another algorithm to test
@@ -111,8 +119,8 @@ int main(int argc, const char *argv[]) {
 
         // Vector of algorithm functions and their names
         std::vector<std::pair<AlgorithmFunction, std::string>> algorithms = {
+            {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
-            // {anotherAlgorithm, "Another Algorithm"}
             // Add more algorithms as needed
         };
 
@@ -129,6 +137,7 @@ int main(int argc, const char *argv[]) {
 
         // precision is low; the larger the matrix , the lower the precision
         // compare it to the blas inv result to test the correctness
+        int index = 1;
         for (const auto &algorithm : algorithms) {
             Matrix tempResult(
                 MATRIX_SIZE); // zero initialization, same shape as inputMatrix
@@ -142,8 +151,9 @@ int main(int argc, const char *argv[]) {
                               << algorithm.second << std::endl;
                     return -1;
                 }
-                std::cout << "test passed!\n";
+                printf("rgf algorithm %d test passed!\n", index); 
             }
+            ++index;
         }
         // Run all the functions for x times and measure the time
         // create just a single output, as i have already checked correctness,

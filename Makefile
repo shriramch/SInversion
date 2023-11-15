@@ -11,10 +11,10 @@ run: compile_mpi
 
 ifeq ($(UNAME), Darwin)
 compile_mpi:
-	$(MPI) -o test matrices_utils.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_MACOS)
+	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_MACOS)
 else
 compile_mpi:
-	$(MPI) -o test matrices_utils.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_OTHERS)
+	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_OTHERS)
 endif
 
 clean:

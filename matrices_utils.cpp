@@ -260,6 +260,14 @@ void Matrix::invBLAS(int n, const float *A, float *result) {
     free(ipiv);
 }
 
+void Matrix::matScale(int n, float *A, int k, float *result) {
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            result[i * n + j] = A[i * n + j] * k;
+        }
+    }
+}
+
 /*
     Generate a dense matrix of shape: (matrice_size x matrice_size) filled
     with random numbers. The matrice should real valued.
