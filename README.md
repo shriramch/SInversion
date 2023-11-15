@@ -38,7 +38,15 @@ The new running method:
 - (random mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true>\n . Eg. mpirun -np 2 ./test -m 8 -b 2 -n 10 -s 0 -o 1
 - (file mode): mpirun -np 2 ./test -m <matrixSize> -b <blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o <saveOffDiag=true> -f <inputPath>\n
 
-        
+Very easy use:
+1. Implement your algorithm
+2. Include it on test.cpp
+3. Wrap it as rgf2sidedAlgorithm
+4. Put it on algorithms vectors
+5. make run 
+6. see the result on run.txt
+   
+
 TODO:
 - Inspect memory safety issues.
 - See if precision can be improved.
