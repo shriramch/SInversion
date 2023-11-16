@@ -56,3 +56,30 @@ Note:
 - Please do not use using namespace std;
 - Please do not use #include <bits/stdc++.h>
 - mpic++ -o test rgf2.cpp -lblas -llapack
+
+
+Next steps:
+1. Mid-term Meeting - 24 November
+   - CUDA Implementation RGF1Sided
+     + Setting up the CUDA Environment
+     + Matrix Representation: format suitable for GPU memory -> CSR (Compressed Sparse Row) or COO (Coordinate List) 
+     + Memory Management: memory allocation on the GPU. transfer from the host (CPU) to the device (GPU).
+     + CUDA kernels for the operations including matrix addition/substraction, inversions, and multiplications.
+     + Define Parallelization Strategy
+     + Testing and Validation
+       
+   - Benchmark Implementation
+     + Define Benchmark KPI's / Measurements: Execution Time, Scalability, #Flops, Flops/s
+     + Implementation for RGF1sided and RGF2sided (leverage LibSciBench? - https://spcl.inf.ethz.ch/Research/Performance/LibLSB/)
+     + Setup for Benchmarking / Environment Configuration on Darwin
+     + Statistical Data Collection (ensuring "Warm Registers") incl. Multiple Runs and Analysis (e.g., leavering Seaborn / Python or R)
+    
+   - Alignment on Thursday, 23 November
+      + consolidate status quo and results
+      + collect open question for mid-term review
+        
+2. Mid of December
+   - Cuda Implementation RGF2Sided (MPI + CUDA)
+   - Improve Performance leverag Streaming RGF1Sided (CUDA) & RGF2Sided (MPI + CUDA)
+   - Analyis & Conclusion - first draft of Report
+  
