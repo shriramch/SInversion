@@ -1,10 +1,13 @@
 #include "rgf1.hpp"
 #include <fstream>
 #include <iostream>
+#include "liblsb.h"
 
 using namespace std;
 
 int main() {
+
+    LSB_Init("DPHPC Project", 0);
     fstream fin("test.txt", ios::in);
 
     int n, blocksize;
@@ -34,13 +37,21 @@ int main() {
     Matrix G(n);
     G.DensetoB3D(blocksize);
 
+    //starting benchmarking
+    LSB_Rec(1);
+
     //main algo
     rgf(A, G, false, true);
+
+    //end benchmarking
+    LSB_Rec(2);
 
     //converting to normal format
     G.B3DtoDense();
 
     G.printB();
 
+
+    LSB_Finalize();
     return 0;
 }
