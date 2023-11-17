@@ -12,4 +12,11 @@ Before you begin, ensure you have met the following requirements:
 
 ## Compilation Instructions
 
-- mpic++ -o test rgf2.cpp -lblas -llapacke
+- mpic++ -o test  test_rgf1.cpp rgf1.cpp  -lblas -llapacke
+
+## For Testing
+
+- run python program defining no_block and blocksize 
+- python program will generate matrix and run the python version of rgf
+- run the cpp code that will use the generated matrix from test.txt
+- result of cpp | python program should be almost same (ignoring precision error)
