@@ -1,6 +1,6 @@
 UNAME := $(shell uname)
 MPI := mpic++
-MPI_FLAGS_MACOS := -I/usr/local/opt/lapack/include -I/usr/local/opt/openblas/include -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -lblas -llapack -llapacke
+MPI_FLAGS_MACOS := -I/opt/homebrew/opt/lapack/include -I/opt/homebrew/opt/openblas/include -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lblas -llapack -llapacke
 MPI_FLAGS_OTHERS := -lblas -llapack -llapacke
 
 print: run

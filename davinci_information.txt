@@ -1,0 +1,79 @@
+CPU
+Architecture:            x86_64
+  CPU op-mode(s):        32-bit, 64-bit
+  Address sizes:         43 bits physical, 48 bits virtual
+  Byte Order:            Little Endian
+CPU(s):                  16
+  On-line CPU(s) list:   0-15
+Vendor ID:               AuthenticAMD
+  Model name:            AMD Ryzen 7 2700 Eight-Core Processor
+    CPU family:          23
+    Model:               8
+    Thread(s) per core:  2
+    Core(s) per socket:  8
+    Socket(s):           1
+    Stepping:            2
+    BogoMIPS:            6799.82
+    Flags:               fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mc
+                         a cmov pat pse36 clflush mmx fxsr sse sse2 ht syscall n
+                         x mmxext fxsr_opt pdpe1gb rdtscp lm constant_tsc rep_go
+                         od nopl nonstop_tsc cpuid extd_apicid aperfmperf rapl p
+                         ni pclmulqdq monitor ssse3 fma cx16 sse4_1 sse4_2 movbe
+                          popcnt aes xsave avx f16c rdrand lahf_lm cmp_legacy sv
+                         m extapic cr8_legacy abm sse4a misalignsse 3dnowprefetc
+                         h osvw skinit wdt tce topoext perfctr_core perfctr_nb b
+                         pext perfctr_llc mwaitx cpb hw_pstate ssbd ibpb vmmcall
+                          fsgsbase bmi1 avx2 smep bmi2 rdseed adx smap clflushop
+                         t sha_ni xsaveopt xsavec xgetbv1 xsaves clzero irperf x
+                         saveerptr arat npt lbrv svm_lock nrip_save tsc_scale vm
+                         cb_clean flushbyasid decodeassists pausefilter pfthresh
+                         old avic v_vmsave_vmload vgif overflow_recov succor smc
+                         a sme sev sev_es
+Virtualization features: 
+  Virtualization:        AMD-V
+Caches (sum of all):     
+  L1d:                   256 KiB (8 instances)
+  L1i:                   512 KiB (8 instances)
+  L2:                    4 MiB (8 instances)
+  L3:                    16 MiB (2 instances)
+NUMA:                    
+  NUMA node(s):          1
+  NUMA node0 CPU(s):     0-15
+Vulnerabilities:         
+  Itlb multihit:         Not affected
+  L1tf:                  Not affected
+  Mds:                   Not affected
+  Meltdown:              Not affected
+  Mmio stale data:       Not affected
+  Retbleed:              Mitigation; untrained return thunk; SMT vulnerable
+  Spec store bypass:     Mitigation; Speculative Store Bypass disabled via prctl
+                          and seccomp
+  Spectre v1:            Mitigation; usercopy/swapgs barriers and __user pointer
+                          sanitization
+  Spectre v2:            Mitigation; Retpolines, IBPB conditional, STIBP disable
+                         d, RSB filling, PBRSB-eIBRS Not affected
+  Srbds:                 Not affected
+  Tsx async abort:       Not affected
+
+
+  Fri Nov 17 13:39:00 2023       
++-----------------------------------------------------------------------------+
+| NVIDIA-SMI 515.43.04    Driver Version: 515.43.04    CUDA Version: 11.7     |
+|-------------------------------+----------------------+----------------------+
+| GPU  Name        Persistence-M| Bus-Id        Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp  Perf  Pwr:Usage/Cap|         Memory-Usage | GPU-Util  Compute M. |
+|                               |                      |               MIG M. |
+|===============================+======================+======================|
+|   0  NVIDIA GeForce ...  On   | 00000000:1D:00.0 Off |                  N/A |
+| 38%   47C    P8    22W / 260W |     15MiB / 11264MiB |      0%      Default |
+|                               |                      |                  N/A |
++-------------------------------+----------------------+----------------------+
+                                                                               
++-----------------------------------------------------------------------------+
+| Processes:                                                                  |
+|  GPU   GI   CI        PID   Type   Process name                  GPU Memory |
+|        ID   ID                                                   Usage      |
+|=============================================================================|
+|    0   N/A  N/A      1174      G   /usr/lib/xorg/Xorg                  9MiB |
+|    0   N/A  N/A      1306      G   /usr/bin/gnome-shell                4MiB |
++-----------------------------------------------------------------------------+
