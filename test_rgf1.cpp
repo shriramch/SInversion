@@ -6,26 +6,38 @@ using namespace std;
 
 int main() {
     fstream fin("test.txt", ios::in);
-    float *m = new float[25];
-    for (int i = 0; i < 5; ++i) {
-        for (int j = 0; j < 5; ++j) {
-            fin >> m[5 * i + j];
+
+    int n, blocksize;
+    fin.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+    fin >> n;
+    fin.ignore(std::numeric_limits<std::streamsize>::max(), '=');
+    fin >> blocksize;
+
+    cout<<"n: "<<n<<" blocksize: "<<blocksize<<endl;
+
+
+    float *temp_mat = new float[n*n];
+
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            fin >> temp_mat[i*n + j];
         }
     }
-    // for (int i = 0; i < 5; ++i) {
-    //     for (int j = 0; j < 5; ++j) {
-    //         cout << m[5 * i + j] << " ";
-    //     }
-    //     cout << endl;
-    // }
 
-    Matrix A(5, m);
-    A.DensetoB3D(1);
-    Matrix G(5);
-    G.DensetoB3D(1);
+    //initialise input matrix
+    Matrix A(n, temp_mat);
 
-    rgf(A, G, true, true);
+    //init mdiag, updiag, lodiag
+    A.DensetoB3D(blocksize);
 
+    //init result matrix
+    Matrix G(n);
+    G.DensetoB3D(blocksize);
+
+    //main algo
+    rgf(A, G, false, true);
+
+    //converting to normal format
     G.B3DtoDense();
 
     G.printB();

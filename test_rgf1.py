@@ -1,6 +1,11 @@
 import rgf1
 import numpy as np
 
+def print_float_matrix(matrix):
+    np.set_printoptions(precision=8, suppress=True)
+
+    for row in matrix:
+        print(" ".join(f"{element:8.8f}" for element in row))
 
 def generate_matrices(nblocks, bsize, seed):
     rng = np.random.default_rng(seed)
@@ -32,37 +37,26 @@ def generate_matrices(nblocks, bsize, seed):
 
 
 if __name__ == "__main__":
-    nblocks, bsize = 5, 1
+    nblocks, bsize = 4, 4
 
-    # A, A_diag, A_upper, A_lower = generate_matrices(nblocks, bsize, 42)
-    A = np.asarray(
-        [
-            [2.86297779, 0.97562235, 0.0, 0.0, 0.0],
-            [0.97562235, 3.10132593, 0.92676499, 0.0, 0.0],
-            [0.0, 0.92676499, 3.20760395, 0.06381726, 0.0],
-            [0.0, 0.0, 0.06381726, 2.30493634, 0.89312112],
-            [0.0, 0.0, 0.0, 0.89312112, 3.75481635],
-        ]
-    )
-    A_diag = np.asarray(
-        [[[2.8629777]], [[3.101326]], [[3.207604]], [[2.3049364]], [[3.7548163]]]
-    )
-    A_upper = np.asarray(
-        [[[0.97562236]], [[0.92676497]], [[0.06381726]], [[0.8931211]]]
-    )
-    A_lower = np.asarray(
-        [[[0.97562236]], [[0.92676497]], [[0.06381726]], [[0.8931211]]]
-    )
-    # print(A, A_diag, A_upper, A_lower)
-    # exit()
-    G_diag, G_lower, G_upper = rgf1.rgf(
-        A_diag, A_lower, A_upper, sym_mat=True, save_off_diag=True
-    )
+    A, A_diag, A_upper, A_lower = generate_matrices(nblocks, bsize, 89)
 
-    np.set_printoptions(formatter={"all": lambda x: str(x)})
+    # print_float_matrix(A)
+    # print("Diagonal : ")
+    # print(A_diag)
+    # print("Upper : ")
+    # print(A_upper)
+    # print("lower : ")
+    # print(A_lower)
 
-    with open("test.txt", "w") as f:
-        f.write(str(A).replace("[", "").replace("]", ""))
+    np.set_printoptions(precision=8, suppress=True)
+    with open('test.txt', 'w') as file:
+        file.write(f'n = {nblocks*bsize}, blocksize = {bsize}\n')
+        np.savetxt(file, A, fmt='%8.8f')
+
+
+    # calling RGF algoriithm
+    G_diag, G_lower, G_upper = rgf1.rgf(A_diag, A_lower, A_upper, sym_mat=False, save_off_diag=True)
 
     # Validate
     inv_A = np.linalg.inv(A)
@@ -81,9 +75,11 @@ if __name__ == "__main__":
                 G_upper[i],
             )
 
-    with open("testo.txt", "w") as f:
-        f.write(str(G_diag))
-        f.write("\n")
-        f.write(str(G_upper))
-        f.write("\n")
-        f.write(str(G_lower))
+    print()
+    print("********************************")
+    print("G Diagonal : ")
+    print(G_diag)
+    print("G Upper : ")
+    print(G_upper)
+    print("G lower : ")
+    print(G_lower)

@@ -16,11 +16,11 @@ Matrix::Matrix(int N, float *newMat) {
     }
 }
 
-Matrix::Matrix(float *m, float *up, float *lo) {
-    mdiag = m;
-    updiag = up;
-    lodiag = lo;
-}
+// Matrix::Matrix(float *m, float *up, float *lo) {
+//     mdiag = m;
+//     updiag = up;
+//     lodiag = lo;
+// }
 
 void Matrix::DensetoB3D(int blockSize) {
     B = blockSize;
@@ -32,7 +32,7 @@ void Matrix::DensetoB3D(int blockSize) {
     for (int b = 0; b < numBlocks; ++b) {
         for (int i = 0; i < blockSize; ++i) {
             for (int j = 0; j < blockSize; ++j) {
-                mdiag[b * blockSize * blockSize + i * blockSize + j] =
+                mdiag[(b * blockSize * blockSize) + (i * blockSize) + j] =
                     mat[(b * blockSize + i) * n + (b * blockSize + j)];
             }
         }
@@ -74,17 +74,23 @@ void Matrix::B3DtoDense() {
     }
 }
 
-void Matrix::printM() {
+void Matrix:: printM() {
+
+    std::cout << std::fixed << std::setprecision(8);
+
     cout << "Matrix: " << endl;
     for (int i = 0; i < n; ++i) {
         for (int j = 0; j < n; ++j) {
-            cout << mat[i * n + j] << " ";
+            cout <<setw(8)<< mat[i * n + j] << " ";
         }
         cout << endl;
     }
 }
 
 void Matrix::printB() {
+
+    std::cout << std::fixed << std::setprecision(8);
+    
     cout << "Main diagonal: " << endl;
     for (int i = 0; i < n / B; ++i) {
         for (int j = 0; j < B; ++j) {
@@ -131,57 +137,60 @@ void Matrix::get(int &t, int &u) { t = B, u = n; }
 
 void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
          bool save_off_diag = true) {
-    int B, n;
-    A.get(B, n);
-    mat_INV(B, A.mdiag, G.mdiag);
 
-    // cout << "A" << endl;
-    // print(A.mdiag, 1);
-    // cout << "G" << endl;
-    // print(G.mdiag, 1);
+    int blocksize, matrix_dim;
 
-    int nB = n / B;
-    for (int i = 1; i < nB; ++i) {
-        float *AAi = new float[B * B], *AGi = new float[B * B];
-        MMM_BLAS(B, &(A.lodiag[i - 1]), &(G.mdiag[i - 1]), AGi);
-        MMM_BLAS(B, AGi, &(A.updiag[i - 1]), AAi);
-        mat_SUB(B, &(A.mdiag[i]), AAi, AGi);
-        mat_INV(B, AGi, &(G.mdiag[i]));
+    A.get(blocksize, matrix_dim);
+
+    mat_INV(blocksize, A.mdiag, G.mdiag);
+
+
+    int num_blocks = matrix_dim / blocksize;
+
+    for (int i = 1; i < num_blocks; ++i) {
+
+        float *AAi = new float[blocksize * blocksize], *AGi = new float[blocksize * blocksize];
+        
+        MMM_BLAS(blocksize, &(A.lodiag[(i - 1)*blocksize*blocksize]), &(G.mdiag[(i - 1)*blocksize*blocksize]), AGi);
+        MMM_BLAS(blocksize, AGi, &(A.updiag[(i - 1)*blocksize*blocksize]), AAi);
+        mat_SUB(blocksize, &(A.mdiag[i*blocksize*blocksize]), AAi, AGi);
+        mat_INV(blocksize, AGi, &(G.mdiag[i*blocksize*blocksize]));
 
         free(AAi), free(AGi);
     }
 
-    // for (int i = 0; i < nB; ++i) {
-    //     cout << "G.mdiag " << i << endl;
-    //     print(&(G.mdiag[i]), B);
-    // }
 
-    for (int i = nB - 2; i >= 0; --i) {
-        float *Glf = new float[B * B], *Glf1 = new float[B * B];
-        MMM_BLAS(B, &(G.mdiag[i + 1]), &(A.lodiag[i]), Glf1);
-        MMM_BLAS(B, Glf1, &(G.mdiag[i]), Glf);
+    for (int i = num_blocks - 2; i >= 0; --i) {
 
-        // print(Glf, B);
+        float *Glf = new float[blocksize * blocksize], *Glf1 = new float[blocksize * blocksize];
+        
+        MMM_BLAS(blocksize, &(G.mdiag[(i + 1)*blocksize*blocksize]), &(A.lodiag[i*blocksize*blocksize]), Glf1);
+        MMM_BLAS(blocksize, Glf1, &(G.mdiag[i*blocksize*blocksize]), Glf);
+
 
         if (save_off_diag) {
-            matK(B, Glf, -1, &(G.lodiag[i]));
-            if (sym_mat) {
-                matT(B, &(G.lodiag[i]), &(G.updiag[i]));
-            } else {
-                float *Guf = new float[B * B], *Guf1 = new float[B * B];
-                MMM_BLAS(B, &(A.updiag[i]), &(G.mdiag[i + 1]), Guf1);
-                MMM_BLAS(B, &(G.mdiag[i]), Guf1, Guf);
-                matK(B, Guf, -1, &(G.updiag[i]));
 
-                // print(&(G.updiag[i]), B);
+            matK(blocksize, Glf, -1, &(G.lodiag[i*blocksize*blocksize]));
+            
+            if (sym_mat) {
+                
+                matT(blocksize, &(G.lodiag[i*blocksize*blocksize]), &(G.updiag[i*blocksize*blocksize]));
+            } 
+            else {
+
+                float *Guf = new float[blocksize * blocksize], *Guf1 = new float[blocksize * blocksize];
+               
+                MMM_BLAS(blocksize, &(A.updiag[i*blocksize*blocksize]), &(G.mdiag[(i + 1)*blocksize*blocksize]), Guf1);
+                MMM_BLAS(blocksize, &(G.mdiag[i*blocksize*blocksize]), Guf1, Guf);
+                matK(blocksize, Guf, -1, &(G.updiag[i*blocksize*blocksize]));
 
                 free(Guf), free(Guf1);
             }
         }
 
-        MMM_BLAS(B, &(A.updiag[i]), Glf, Glf1);
-        MMM_BLAS(B, &(G.mdiag[i]), Glf1, Glf);
-        mat_ADD(B, &(G.mdiag[i]), Glf, &(G.mdiag[i]));
+        MMM_BLAS(blocksize, &(A.updiag[i*blocksize*blocksize]), Glf, Glf1);
+        MMM_BLAS(blocksize, &(G.mdiag[i*blocksize*blocksize]), Glf1, Glf);
+        mat_ADD(blocksize, &(G.mdiag[i*blocksize*blocksize]), Glf, &(G.mdiag[i*blocksize*blocksize]));
 
         free(Glf), free(Glf1);
     }
@@ -191,14 +200,14 @@ void rgf(Matrix &A, Matrix &G, bool sym_mat = false,
 //     float *t = new float[16];
 //     for (int i = 0; i < 4; ++i) {
 //         for (int j = max(i - 1, 0); j < min(i + 2, 4); ++j) {
-//             t[4 * i + j] = 5;
+//             t[i*4 + j] = 5;
 //         }
 //     }
 //     Matrix m(4, t), f(4);
 //     m.printM();
-//     m.DensetoB3D(1);
-//     f.DensetoB3D(1);
-//     // m.printB();
+//     m.DensetoB3D(2);
+//     f.DensetoB3D(2);
+//     m.printB();
 //     rgf(m, f);
 //     // f.printB();
 //     f.B3DtoDense();
