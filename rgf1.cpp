@@ -22,6 +22,7 @@ void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
         delete [] AGi;
     }
 
+    // 2. Backward substitution
     for (int i = nblocks - 2; i >= 0; --i) {
         // float *g_ii = G.mdiag + i*blockSize*blockSize;
         float *Glf = new float[nblocks * nblocks], *Glf1 = new float[nblocks * nblocks];
