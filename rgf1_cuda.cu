@@ -51,21 +51,22 @@ __global__ void matrixInversionKernel(float *A, float *result, int n, cublasHand
     //      "This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor."
     // cit. https://docs.nvidia.com/cuda/cublas/index.html#cublas-t-getribatched
 
-    int* dLUPivots; // Pivoting array
-    int* dLUInfo; // Device array to store inversion status
-    int batchSize = 1; // Assuming a single matrix inversion
+    // TODO, for now comment it out, NOTE that the inversion function is wrong as it expect a float**  (=matrix and NOT an array, which is what we are passing)
+    // int* dLUPivots; // Pivoting array
+    // int* dLUInfo; // Device array to store inversion status
+    // int batchSize = 1; // Assuming a single matrix inversion
 
-    cudaMalloc(&dLUPivots, n * sizeof(int));
-    cudaMalloc(&dLUInfo, sizeof(int));
+    // cudaMalloc(&dLUPivots, n * sizeof(int));
+    // cudaMalloc(&dLUInfo, sizeof(int));
 
-    cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize); // RIP does not work, NOTE it expect a float** NOT a float*
-    cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
+    // cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize); // RIP does not work, NOTE it expect a float** NOT a float*
+    // cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
 
-    cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, &result, n, dLUInfo, batchSize);
-    cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
+    // cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, &result, n, dLUInfo, batchSize);
+    // cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
 
-    cudaFree(dLUPivots);
-    cudaFree(dLUInfo);
+    // cudaFree(dLUPivots);
+    // cudaFree(dLUInfo);
 }
 
 // TODO, test this function

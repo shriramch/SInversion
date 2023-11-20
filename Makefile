@@ -3,7 +3,7 @@ MPI := mpic++
 MPI_FLAGS_MACOS := -I/opt/homebrew/opt/lapack/include -I/opt/homebrew/opt/openblas/include -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lblas -llapack -llapacke
 MPI_FLAGS_OTHERS := -lblas -llapack -llapacke
 CUDA := nvcc
-
+CUDA_FLAGS_OTHERS := -lcublas
 print: run
 	python3 parse_output.py
 
@@ -26,5 +26,5 @@ run_cuda: compile_cuda
 	./test_cuda
 
 compile_cuda:
-	$(CUDA) -o test_cuda rgf1_cuda.cu
+	$(CUDA) -o test_cuda rgf1_cuda.cu $(CUDA_FLAGS_OTHERS)
 
