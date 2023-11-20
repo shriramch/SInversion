@@ -37,7 +37,7 @@ def generate_matrices(nblocks, bsize, seed):
 
 
 if __name__ == "__main__":
-    nblocks, bsize = 100, 4
+    nblocks, bsize = 20, 10
 
     A, A_diag, A_upper, A_lower = generate_matrices(nblocks, bsize, 89)
 

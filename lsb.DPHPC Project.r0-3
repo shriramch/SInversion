@@ -1,0 +1,21 @@
+# Sysname : Linux
+# Nodename: sood
+# Release : 6.2.0-36-generic
+# Version : #37~22.04.1-Ubuntu SMP PREEMPT_DYNAMIC Mon Oct  9 15:34:04 UTC 2
+# Machine : x86_64
+# Execution time and date (UTC): Mon Nov 20 15:36:53 2023
+# Execution time and date (local): Mon Nov 20 16:36:53 2023
+# Reported time measurements are in microseconds
+# pretty output format
+       id         time     overhead 
+         0 216.881500            0 
+         1 277.183966            2 
+         2 164.949953            0 
+         3 107.689205            0 
+         4 143.464931            0 
+         5 155.302835            0 
+         6 106.348536            0 
+         7 101.470629            0 
+         8 126.924765            0 
+         9 93.823355            0 
+# Runtime: 0.016991 s (overhead: 0.011771 %) 10 records

@@ -37,14 +37,17 @@ int main() {
     Matrix G(n);
     G.DensetoB3D(blocksize);
 
-    //starting benchmarking
-    LSB_Rec(1);
+    int RUNS= 10;
+    for (int i=0; i<RUNS; i++){
+        //reset 
+        LSB_Res();
 
-    //main algo
-    rgf(A, G, false, true);
+        //main algo
+        rgf(A, G, false, true);
 
-    //end benchmarking
-    LSB_Rec(2);
+        //end benchmarking
+        LSB_Rec(i);
+    }
 
     //converting to normal format
     G.B3DtoDense();

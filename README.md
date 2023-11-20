@@ -12,7 +12,7 @@ Before you begin, ensure you have met the following requirements:
 
 ## Compilation Instructions
 
-- mpic++ -o test  test_rgf1.cpp rgf1.cpp  -lblas -llapacke
+- g++ -o test test_rgf1.cpp rgf1.cpp -lblas -llapacke -llsb
 
 ## For Testing
 
