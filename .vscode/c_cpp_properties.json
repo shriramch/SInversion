@@ -5,7 +5,8 @@
             "includePath": [
                 "${workspaceFolder}/**",
                 "/usr/local/opt/openblas/include",
-                "/usr/local/opt/lapack/include"
+                "/usr/local/opt/lapack/include",
+                "/home/prior_simon/OpenBLAS/lapack"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
