@@ -89,9 +89,9 @@ void Matrix::convertBlkTridiagToDense() {
     }
 }
 
-// void Matrix::transposeBLAS(int n, float *A, float *result) {
-//     cblas_somatcopy(CblasRowMajor, CblasTrans, n, n, 1.0f, A, n, result, n);
-// }
+void Matrix::transposeBLAS(int n, float *A, float *result) {
+    cblas_somatcopy(CblasRowMajor, CblasTrans, n, n, 1.0f, A, n, result, n);
+}
 
 /* Generate 3 representations */
 void Matrix::convertDenseToBlkTridiag(const int blockSize) {
@@ -225,16 +225,16 @@ bool Matrix::compareDiagonals(const Matrix &other, bool isPrint = true) {
     return true;
 }
 
-// void Matrix::mmmBLAS(int n, float *A, float *B, float *result) {
-//     const CBLAS_ORDER order = CblasRowMajor;
-//     const CBLAS_TRANSPOSE transA = CblasNoTrans;
-//     const CBLAS_TRANSPOSE transB = CblasNoTrans;
-//     const float alpha = 1.0;
-//     const float beta = 0.0;
+void Matrix::mmmBLAS(int n, float *A, float *B, float *result) {
+    const CBLAS_ORDER order = CblasRowMajor;
+    const CBLAS_TRANSPOSE transA = CblasNoTrans;
+    const CBLAS_TRANSPOSE transB = CblasNoTrans;
+    const float alpha = 1.0;
+    const float beta = 0.0;
 
-//     cblas_sgemm(order, transA, transB, n, n, n, alpha, A, n, B, n, beta, result,
-//                 n);
-// }
+    cblas_sgemm(order, transA, transB, n, n, n, alpha, A, n, B, n, beta, result,
+                n);
+}
 
 void Matrix::mmSub(int n, float *A, float *B, float *result) {
     for (int i = 0; i < n * n; ++i) {
@@ -248,17 +248,17 @@ void Matrix::mmAdd(int n, float *A, float *B, float *result) {
     }
 }
 
-// void Matrix::invBLAS(int n, const float *A, float *result) {
+void Matrix::invBLAS(int n, const float *A, float *result) {
 
-//     int *ipiv = (int *)malloc(n * sizeof(int));
-//     memcpy(result, A, n * n * sizeof(float));
+    int *ipiv = (int *)malloc(n * sizeof(int));
+    memcpy(result, A, n * n * sizeof(float));
 
-//     LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, result, n, ipiv);
+    LAPACKE_sgetrf(LAPACK_ROW_MAJOR, n, n, result, n, ipiv);
 
-//     LAPACKE_sgetri(LAPACK_ROW_MAJOR, n, result, n, ipiv);
+    LAPACKE_sgetri(LAPACK_ROW_MAJOR, n, result, n, ipiv);
 
-//     free(ipiv);
-// }
+    free(ipiv);
+}
 
 void Matrix::matScale(int n, float *A, int k, float *result) {
     for (int i = 0; i < n; ++i) {
