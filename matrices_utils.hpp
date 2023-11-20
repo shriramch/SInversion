@@ -1,11 +1,11 @@
 #pragma once
 #include <assert.h>
-#include <cblas.h>
+//#include <cblas.h>
 #include <cstdlib>
 #include <cstring>
 #include <ctime>
 #include <iostream>
-#include <lapacke.h>
+//#include <lapacke.h>
 
 /* Symmetric matrix representation
    n: size of the matrix
@@ -38,12 +38,12 @@ public:
     void printM();
     void printB();
     void getBlockSizeAndMatrixSize(int &, int &);
-    void mmmBLAS(int, float *, float *, float *);
-    void invBLAS(int n, const float *A, float *result); // correct
+    //void mmmBLAS(int, float *, float *, float *);
+    //void invBLAS(int n, const float *A, float *result); // correct
     void mmAdd(int n, float *A, float *B, float *result);
     void mmSub(int n, float *A, float *B, float *result);
     void matScale(int n, float *A, int k, float *result);
-    void transposeBLAS(int n, float *A, float *result);
+    //void transposeBLAS(int n, float *A, float *result);
     ~Matrix();
 };
 

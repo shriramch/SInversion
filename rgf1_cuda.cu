@@ -3,6 +3,8 @@
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 
+#define CUDA_CALL(res, str) { if (res != cudaSuccess) { printf("CUDA Error : %s : %s %d : ERR %s\n", str, __FILE__, __LINE__, cudaGetErrorName(res)); } }
+#define CUBLAS_CALL(res, str) { if (res != CUBLAS_STATUS_SUCCESS) { printf("CUBLAS Error : %s : %s %d : ERR %d\n", str, __FILE__, __LINE__, int(res)); } }
 
 // CUDA Kernel for a specific matrix operation
 // Note, thanks to dynamic parallelism on cuda 5.0 and over, it IS possible to launch a kernel inside another kernel
@@ -47,10 +49,7 @@ __global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
 // TODO, note this is declared as a kernel, but the function cublasSgetrfBatched is already a kernel, so it would make
 //      more sense to declare this as just a C++ function (without the global) 
 __global__ void matrixInversionKernel(const float *A, float *result, int n, cublasHandle_t cublasHandle) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index < n * n) {
-        result[index] = A[index] * k;
-    }
+    
     // Code inspired by this stackoverflow https://stackoverflow.com/questions/37731103/cublas-matrix-inverse-much-slower-than-matlab
     // NOTE as mentioned the function cublasSgetriBatched is for SMALL matrixes:
     //      "This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor."
