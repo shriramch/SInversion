@@ -22,5 +22,13 @@ compile_mpi:
 	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_OTHERS)
 endif
 
+# Keeping libLSB module seprate for now
+CXXFLAGS += -DENABLE_LIBLSB
+compile_lsb:
+	$(MPI) -o test *.cpp $(CXXFLAGS) $(MPI_FLAGS_OTHERS) -llsb
+
+rgf1_test: compile_lsb
+	mpirun -np 1 ./test -m 8 -b 2 -n 10 -s 0 -o 1  > run.txt
+
 clean:
 	rm -fR main plot_out/* run.txt

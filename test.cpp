@@ -2,6 +2,9 @@
 #include "matrices_utils.hpp"
 #include "rgf2.hpp"
 #include "rgf1.hpp"
+#ifdef ENABLE_LIBLSB
+#include "liblsb.h"
+#endif
 
 #include <stdio.h>
 #include <cmath>
@@ -99,6 +102,9 @@ int main(int argc, const char *argv[]) {
     const char *bin_name = argv[0];
     int processRank;
     MPI_Init(&argc, (char ***)(&argv));
+    #ifdef ENABLE_LIBLSB
+    LSB_Init("DPHPC Project", 0);
+    #endif
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
     // parse options
     Config config;
@@ -119,8 +125,12 @@ int main(int argc, const char *argv[]) {
 
         // Vector of algorithm functions and their names
         std::vector<std::pair<AlgorithmFunction, std::string>> algorithms = {
+            #ifdef ENABLE_LIBLSB
+            {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"}
+            #else
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
+            #endif
             // Add more algorithms as needed
         };
 
@@ -163,9 +173,22 @@ int main(int argc, const char *argv[]) {
             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
         tempResult.convertDenseToBlkTridiag(
             4); // G has same blockSize as in inputMatrix
+        
+        // Need to configure libLSB Benchmark for running rgf2-sided
+        #ifdef ENABLE_LIBLSB
         for (const auto &algorithm : algorithms) {
             for (int i = 0; i < NUM_RUNS; ++i) {
-
+                LSB_Res();
+                // Run the algorithm
+                algorithm.first(inputMatrix, tempResult, MATRIX_SIZE,
+                                BLOCK_SIZE, IS_SYMMETRIC, SAVE_OFF_DIAG);
+                LSB_Rec(i);
+                
+            }
+        }
+        #else
+        for (const auto &algorithm : algorithms) {
+            for (int i = 0; i < NUM_RUNS; ++i) {
                 auto start =
                     clock(); // decide whether to use this or just clock()
                 // Run the algorithm
@@ -181,6 +204,10 @@ int main(int argc, const char *argv[]) {
                 }
             }
         }
+        #endif
+
+
+
     } else if (processRank == 0) {
         printf("Usage (random mode): mpirun -np 2 %s -m <matrixSize> -b "
                "<blockSize=2> -n <numRuns=10> -s <isSymmetric=false> -o "
@@ -192,6 +219,9 @@ int main(int argc, const char *argv[]) {
                bin_name);
         return 1;
     }
+    #ifdef ENABLE_LIBLSB
+    LSB_Finalize();
+    #endif
     MPI_Finalize();
     return 0;
 }
