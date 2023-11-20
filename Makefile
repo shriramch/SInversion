@@ -1,18 +1,25 @@
 UNAME := $(shell uname)
+HOSTNAME := $(shell hostname)
 MPI := mpic++
-MPI_FLAGS_MACOS := -I/opt/homebrew/opt/lapack/include -I/opt/homebrew/opt/openblas/include -L/opt/homebrew/opt/openblas/lib -L/opt/homebrew/opt/lapack/lib -lblas -llapack -llapacke
-MPI_FLAGS_OTHERS := -I$HOME/local/lapack/include -I$HOME/local/openblas/include -L$HOME/local/openblas/lib -L$HOME/local/lapack/lib -lopenblas -llapack
+MPI_FLAGS_MACOS := -I/usr/local/opt/lapack/include -I/usr/local/opt/openblas/include -L/usr/local/opt/openblas/lib -L/usr/local/opt/lapack/lib -lblas -llapack -llapacke
+MPI_FLAGS_OTHERS := -lblas -llapack -llapacke
+MPI_FLAGS_DAVINCI := -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib -lopenblas -llapack
 CUDA := nvcc
 CUDA_FLAGS_OTHERS := -lcublas
+
 print: run
 	python3 parse_output.py
 
 run: compile_mpi
-	mpirun -np 2 ./test -m 8 -b 2 -n 10 -s 0 -o 1  > run.txt
+	mpirun -np 2 ./test -m 8 -b 2 -n 10 -s 0 -o 1
+
 
 ifeq ($(UNAME), Darwin)
 compile_mpi:
 	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_MACOS)
+else ifeq ($(HOSTNAME), davinci)
+compile_mpi: 
+	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_DAVINCI)
 else
 compile_mpi:
 	$(MPI) -o test matrices_utils.cpp rgf1.cpp rgf2.cpp test.cpp argparse.cpp $(MPI_FLAGS_OTHERS)
@@ -21,11 +28,8 @@ endif
 clean:
 	rm -fR main plot_out/* run.txt
 
-
 run_cuda: compile_cuda
 	./test_cuda
 
 compile_cuda:
-	$(CUDA) -o test_cuda rgf1_cuda.cu $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_OTHERS)
-endif
-
+	$(CUDA) -o test_cuda rgf1_cuda.cu $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
