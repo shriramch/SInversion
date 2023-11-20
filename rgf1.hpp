@@ -1,4 +1,4 @@
-// #pragma once
+#pragma once
 #include <cblas.h>
 #include <lapacke.h>
 #include "matrices_utils.hpp"
