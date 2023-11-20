@@ -3,9 +3,6 @@
 #include <cublas_v2.h>
 #include <cusolverDn.h>
 
-#define CUDA_CALL(res, str) { if (res != cudaSuccess) { printf("CUDA Error : %s : %s %d : ERR %s\n", str, __FILE__, __LINE__, cudaGetErrorName(res)); } }
-#define CUBLAS_CALL(res, str) { if (res != CUBLAS_STATUS_SUCCESS) { printf("CUBLAS Error : %s : %s %d : ERR %d\n", str, __FILE__, __LINE__, int(res)); } }
-
 // CUDA Kernel for a specific matrix operation
 // Note, thanks to dynamic parallelism on cuda 5.0 and over, it IS possible to launch a kernel inside another kernel
 
@@ -48,8 +45,7 @@ __global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
 // TODO, after testing you can also delete all the messages if you want
 // TODO, note this is declared as a kernel, but the function cublasSgetrfBatched is already a kernel, so it would make
 //      more sense to declare this as just a C++ function (without the global) 
-__global__ void matrixInversionKernel(const float *A, float *result, int n, cublasHandle_t cublasHandle) {
-    
+__global__ void matrixInversionKernel(float *A, float *result, int n, cublasHandle_t cublasHandle) {
     // Code inspired by this stackoverflow https://stackoverflow.com/questions/37731103/cublas-matrix-inverse-much-slower-than-matlab
     // NOTE as mentioned the function cublasSgetriBatched is for SMALL matrixes:
     //      "This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor."
@@ -59,17 +55,17 @@ __global__ void matrixInversionKernel(const float *A, float *result, int n, cubl
     int* dLUInfo; // Device array to store inversion status
     int batchSize = 1; // Assuming a single matrix inversion
 
-    CUDA_CALL(cudaMalloc(&dLUPivots, n * sizeof(int)), "Failed to allocate dLUPivots!");
-    CUDA_CALL(cudaMalloc(&dLUInfo, sizeof(int)), "Failed to allocate dLUInfo!");
+    cudaMalloc(&dLUPivots, n * sizeof(int));
+    cudaMalloc(&dLUInfo, sizeof(int));
 
-    CUBLAS_CALL(cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize), "Failed to perform LU decomp operation!");
-    CUDA_CALL(cudaDeviceSynchronize(), "Failed to synchronize after kernel call!"); // TODO, not sure i need this sync the previous kernel
+    cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize); // RIP does not work, NOTE it expect a float** NOT a float*
+    cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
 
-    CUBLAS_CALL(cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, result, n, dLUInfo, batchSize), "Failed to perform Inverse operation!");
-    CUDA_CALL(cudaDeviceSynchronize(), "Failed to synchronize after kernel call!"); // TODO, not sure i need this sync the previous kernel
+    cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, &result, n, dLUInfo, batchSize);
+    cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
 
-    CUDA_CALL(cudaFree(dLUPivots), "Failed to free dLUPivots!");
-    CUDA_CALL(cudaFree(dLUInfo), "Failed to free dLUInfo!");
+    cudaFree(dLUPivots);
+    cudaFree(dLUInfo);
 }
 
 // TODO, test this function
@@ -83,14 +79,15 @@ __global__ void matrixTransposeKernel(const float* A, float* result, int n, cubl
 
 // CUDA-accelerated rgf1sided function
 
-void rgf1sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
+void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_off_diag) {
     int blockSize, matrixSize;
-    A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
+    input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
+    int nblocks = matrixSize / blockSize;
     
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
-    CUBLAS_CALL(cublasCreate(&cublasHandle), "Failed to initialize cuBLAS!");
+    cublasCreate(&cublasHandle);
 
     // TODO, check if we need the cuSolver
     // cusolverDnHandle_t cusolverH = NULL;
@@ -103,8 +100,34 @@ void rgf1sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     cudaMalloc(&G, size);
     
     // Copy matrices from host to device
-    cudaMemcpy(A, A.getMat(), size, cudaMemcpyHostToDevice);
-    cudaMemcpy(G, G.getMat(), size, cudaMemcpyHostToDevice);
+    cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
+    cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
+
+    // TODO, prob not the best optimized way to do this calculation
+    // Allocate memory for Matrix specifics on the GPU
+    float *A_mdiag, *G_mdiag;
+    size_t size_mdiag = nblocks * blockSize * blockSize * sizeof(float);
+    cudaMalloc(&A_mdiag, size_mdiag);
+    cudaMalloc(&G_mdiag, size_mdiag);
+    // Copy matrices from host to device
+    cudaMemcpy(A_mdiag, input_A.mdiag, size_mdiag, cudaMemcpyHostToDevice);
+    cudaMemcpy(G_mdiag, input_G.mdiag, size_mdiag, cudaMemcpyHostToDevice);
+    
+    float *A_updiag, *G_updiag;
+    size_t size_updiag = (nblocks - 1) * blockSize * blockSize * sizeof(float);
+    cudaMalloc(&A_updiag, size_updiag);
+    cudaMalloc(&G_updiag, size_updiag);
+    // Copy matrices from host to device
+    cudaMemcpy(A_updiag, input_A.mdiag, size_updiag, cudaMemcpyHostToDevice);
+    cudaMemcpy(G_updiag, input_G.mdiag, size_updiag, cudaMemcpyHostToDevice);
+
+    float *A_lodiag, *G_lodiag;
+    // size_t size_lodiag = (nblocks - 1) * blockSize * blockSize * sizeof(float); // = size_updiag
+    cudaMalloc(&A_lodiag, size_updiag);
+    cudaMalloc(&G_lodiag, size_updiag);
+    // Copy matrices from host to device
+    cudaMemcpy(A_lodiag, input_A.mdiag, size_updiag, cudaMemcpyHostToDevice);
+    cudaMemcpy(G_lodiag, input_G.mdiag, size_updiag, cudaMemcpyHostToDevice);
     
     // Launch CUDA kernels for matrix operations
 
@@ -112,7 +135,6 @@ void rgf1sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     // TODO, double check indexes (this is the case with all the functions calls)
     matrixInversionKernel<<<1, 1>>>(A, G, blockSize, cublasHandle);
 
-    int nblocks = matrixSize / blockSize;
     int kernels_num_blocks = nblocks; // TODO, find the optimal combination
     int kernels_num_threads = 1; // TODO, find the optimal combination
     
@@ -125,13 +147,13 @@ void rgf1sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
 
         // TODO, check how to parallelize, since u need the previous G
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (&(A.lodiag[(i - 1)*blockSize*blockSize]), &(G.mdiag[(i - 1)*blockSize*blockSize]), AGi, blockSize);
+            (&(A_lodiag[(i - 1)*blockSize*blockSize]), &(G_mdiag[(i - 1)*blockSize*blockSize]), AGi, blockSize);
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (AGi, &(A.updiag[(i - 1)*blockSize*blockSize]), AAi, blockSize);
+            (AGi, &(A_updiag[(i - 1)*blockSize*blockSize]), AAi, blockSize);
         matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (&(A.mdiag[i*blockSize*blockSize]), AAi, AGi, blockSize);
+            (&(A_mdiag[i*blockSize*blockSize]), AAi, AGi, blockSize);
         matrixInversionKernel<<<1, 1>>>
-            (AGi, &(G.mdiag[i * blockSize * blockSize]), blockSize, cublasHandle);
+            (AGi, &(G_mdiag[i * blockSize * blockSize]), blockSize, cublasHandle);
 
         // Free temporary GPU memory
         cudaFree(AAi);
@@ -146,28 +168,28 @@ void rgf1sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
         cudaMalloc(&Glf1, blockSizeBytes);
 
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (&(G.mdiag[(i + 1) * blockSize * blockSize]), &(A.lodiag[i * blockSize * blockSize]), Glf1, blockSize);
+            (&(G_mdiag[(i + 1) * blockSize * blockSize]), &(A_lodiag[i * blockSize * blockSize]), Glf1, blockSize);
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (Glf1, &(G.mdiag[i * blockSize * blockSize]), Glf, blockSize);
+            (Glf1, &(G_mdiag[i * blockSize * blockSize]), Glf, blockSize);
 
         if (save_off_diag) {
             matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>
-                (Glf, -1, &(G.lodiag[i * blockSize * blockSize]), blockSize);
+                (Glf, -1, &(G_lodiag[i * blockSize * blockSize]), blockSize);
 
             if (sym_mat) {
                 matrixTransposeKernel<<<kernels_num_blocks, kernels_num_threads>>>
-                    (&(G.lodiag[i * blockSize * blockSize]), &(G.updiag[i * blockSize * blockSize]), blockSize, cublasHandle);
+                    (&(G_lodiag[i * blockSize * blockSize]), &(G_updiag[i * blockSize * blockSize]), blockSize, cublasHandle);
             } else {
                 float *Guf, *Guf1;
                 cudaMalloc(&Guf, blockSizeBytes);
                 cudaMalloc(&Guf1, blockSizeBytes);
 
                 matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-                    (&(A.updiag[i * blockSize * blockSize]), &(G.mdiag[(i + 1) * blockSize * blockSize]), Guf1, blockSize);
+                    (&(A_updiag[i * blockSize * blockSize]), &(G_mdiag[(i + 1) * blockSize * blockSize]), Guf1, blockSize);
                 matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-                    (&(G.mdiag[i * blockSize * blockSize]), Guf1, Guf, blockSize);
+                    (&(G_mdiag[i * blockSize * blockSize]), Guf1, Guf, blockSize);
                 matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>
-                    (Guf, -1, &(G.updiag[i * blockSize * blockSize]), blockSize);
+                    (Guf, -1, &(G_updiag[i * blockSize * blockSize]), blockSize);
 
                 // Free temporary GPU memory
                 cudaFree(Guf);
@@ -176,81 +198,37 @@ void rgf1sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
         }
 
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (&(A.updiag[i * blockSize * blockSize]), Glf, Glf1, blockSize);
+            (&(A_updiag[i * blockSize * blockSize]), Glf, Glf1, blockSize);
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (&(G.mdiag[i * blockSize * blockSize]), Glf1, Glf, blockSize);
+            (&(G_mdiag[i * blockSize * blockSize]), Glf1, Glf, blockSize);
         matrixAddKernel<<<kernels_num_blocks, kernels_num_threads>>>
-            (&(G.mdiag[i * blockSize * blockSize]), Glf, &(G.mdiag[i * blockSize * blockSize]), blockSize);
+            (&(G_mdiag[i * blockSize * blockSize]), Glf, &(G_mdiag[i * blockSize * blockSize]), blockSize);
 
         // Free temporary GPU memory
         cudaFree(Glf);
         cudaFree(Glf1);
     }
-  /*  
-    // 0. Inverse of the first block
-    A.invBLAS(blockSize, A.mdiag, G.mdiag);
-
-    int nblocks = matrixSize / blockSize;
-
- 
-
-    // Copy matrices from host to device
-    cudaMemcpy(d_A, A.getMat(), size, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_B, B.getMat(), size, cudaMemcpyHostToDevice);
-
-    
-    // 1. Forward substitution (performed left to right)
-    for (int i = 1; i < nblocks; ++i) {
-        float *AAi = new float[blockSize * blockSize](), *AGi = new float[blockSize * blockSize]();
-        A.mmmBLAS(blockSize, &(A.lodiag[(i - 1)*blockSize*blockSize]), &(G.mdiag[(i - 1)*blockSize*blockSize]), AGi);
-        A.mmmBLAS(blockSize, AGi, &(A.updiag[(i - 1)*blockSize*blockSize]), AAi);
-        A.mmSub(blockSize, &(A.mdiag[i*blockSize*blockSize]), AAi, AGi);
-        A.invBLAS(blockSize, AGi, &(G.mdiag[i*blockSize*blockSize]));
-
-        delete [] AAi;
-        delete [] AGi;
-    }
-
-    // 2. Backfward 
-    for (int i = nblocks - 2; i >= 0; --i) {
-        // float *g_ii = G.mdiag + i*blockSize*blockSize;
-        float *Glf = new float[nblocks * nblocks], *Glf1 = new float[nblocks * nblocks];
-        A.mmmBLAS(blockSize, &(G.mdiag[(i + 1)*blockSize*blockSize]), &(A.lodiag[i*blockSize*blockSize]), Glf1);
-        A.mmmBLAS(blockSize, Glf1, &(G.mdiag[i*blockSize*blockSize]), Glf);
-
-        if (save_off_diag) {
-            A.matScale(blockSize, Glf, -1, &(G.lodiag[i*blockSize*blockSize]));
-            if (sym_mat) {
-                A.transposeBLAS(blockSize, &(G.lodiag[i*blockSize*blockSize]), &(G.updiag[i*blockSize*blockSize]));
-            } else {
-                float *Guf = new float[blockSize * blockSize], *Guf1 = new float[blockSize * blockSize];
-                A.mmmBLAS(blockSize, &(A.updiag[i*blockSize*blockSize]), &(G.mdiag[(i + 1)*blockSize*blockSize]), Guf1);
-                A.mmmBLAS(blockSize, &(G.mdiag[i*blockSize*blockSize]), Guf1, Guf);
-                A.matScale(blockSize, Guf, -1, &(G.updiag[i*blockSize*blockSize]));
-
-                delete[] Guf;
-                delete[] Guf1;
-            }
-        }
-
-        A.mmmBLAS(blockSize, &(A.updiag[i*blockSize*blockSize]), Glf, Glf1);
-        A.mmmBLAS(blockSize, &(G.mdiag[i*blockSize*blockSize]), Glf1, Glf);
-        A.mmAdd(blockSize, &(G.mdiag[i*blockSize*blockSize]), Glf, &(G.mdiag[i*blockSize*blockSize]));
-
-        delete [] Glf;
-        delete[] Glf1;
-    }
-    */
 
     // Copy results back to host
-    cudaMemcpy(A.getMat(), A, size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(B.getMat(), B, size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_A.getMat(), A, size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_G.getMat(), G, size, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_A.mdiag, A_mdiag, size_mdiag, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_G.mdiag, G_mdiag, size_mdiag, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_A.updiag, A_updiag, size_updiag, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_G.updiag, G_updiag, size_updiag, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_A.lodiag, A_lodiag, size_updiag, cudaMemcpyDeviceToHost);
+    cudaMemcpy(input_G.lodiag, G_lodiag, size_updiag, cudaMemcpyDeviceToHost);
 
     // Free GPU memory
     cudaFree(A);
-    cudaFree(B);
-    cudaFree(C);
+    cudaFree(G);
+    cudaFree(A_mdiag);
+    cudaFree(G_mdiag);
+    cudaFree(A_updiag);
+    cudaFree(G_updiag);
+    cudaFree(A_lodiag);
+    cudaFree(G_lodiag);
 
     // Destroy cuBLAS handle
-    CUBLAS_CALL(cublasDestroy(cublasHandle), "Failed to destroy cuBLAS!");
+    cublasDestroy(cublasHandle);
 }
