@@ -81,8 +81,10 @@ __global__ void matrixTransposeKernel(const float* A, float* result, int n, cubl
 // CUDA-accelerated rgf1sided function
 
 void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_off_diag) {
+    printf("Starting rgf1sided_cuda!\n");
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
+    printf("input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);!\n");
     int nblocks = matrixSize / blockSize;
     
 
@@ -232,4 +234,25 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
+}
+
+// TEMP main to test stuff out
+int main(int argc, const char *argv[]) {
+    
+    int MATRIX_SIZE = 8;
+    int BLOCK_SIZE = 2;
+    bool IS_SYMMETRIC = false;
+    bool SAVE_OFF_DIAG = true;
+
+    Matrix inputMatrix = generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
+    inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
+
+    Matrix tempResult(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+    tempResult.convertDenseToBlkTridiag( BLOCK_SIZE); // G has same blockSize as inputMatrix
+    rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+
+    inputMatrix.printM();
+    tempResult.printM();
+
 }

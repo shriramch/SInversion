@@ -1,6 +1,6 @@
-// #pragma once
-//#include <cblas.h>
-//#include <lapacke.h>
+#pragma once
+#include <cblas.h>
+#include <lapacke.h>
 #include "matrices_utils.hpp"
 
 // Declaration of the CUDA-accelerated version of rgf1sided
