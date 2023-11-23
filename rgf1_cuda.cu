@@ -45,32 +45,32 @@ __global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
 // TODO, after testing you can also delete all the messages if you want
 // TODO, note this is declared as a kernel, but the function cublasSgetrfBatched is already a kernel, so it would make
 //      more sense to declare this as just a C++ function (without the global) 
-__global__ void matrixInversionKernel(float *A, float *result, int n, cublasHandle_t cublasHandle) {
+void matrixInversionKernel(float *A, float *result, int n, cublasHandle_t cublasHandle) {
     // Code inspired by this stackoverflow https://stackoverflow.com/questions/37731103/cublas-matrix-inverse-much-slower-than-matlab
     // NOTE as mentioned the function cublasSgetriBatched is for SMALL matrixes:
     //      "This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor."
     // cit. https://docs.nvidia.com/cuda/cublas/index.html#cublas-t-getribatched
 
     // TODO, for now comment it out, NOTE that the inversion function is wrong as it expect a float**  (=matrix and NOT an array, which is what we are passing)
-    // int* dLUPivots; // Pivoting array
-    // int* dLUInfo; // Device array to store inversion status
-    // int batchSize = 1; // Assuming a single matrix inversion
+    int* dLUPivots; // Pivoting array
+    int* dLUInfo; // Device array to store inversion status
+    int batchSize = 1; // Assuming a single matrix inversion
 
-    // cudaMalloc(&dLUPivots, n * sizeof(int));
-    // cudaMalloc(&dLUInfo, sizeof(int));
+    cudaMalloc(&dLUPivots, n * sizeof(int));
+    cudaMalloc(&dLUInfo, sizeof(int));
 
-    // cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize); // RIP does not work, NOTE it expect a float** NOT a float*
-    // cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
+    cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize); // RIP does not work, NOTE it expect a float** NOT a float*
+    cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
 
-    // cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, &result, n, dLUInfo, batchSize);
-    // cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
+    cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, &result, n, dLUInfo, batchSize);
+    cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
 
-    // cudaFree(dLUPivots);
-    // cudaFree(dLUInfo);
+    cudaFree(dLUPivots);
+    cudaFree(dLUInfo);
 }
 
 // TODO, test this function
-__global__ void matrixTransposeKernel(const float* A, float* result, int n, cublasHandle_t cublasHandle) {
+void matrixTransposeKernel(const float* A, float* result, int n, cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
@@ -78,6 +78,13 @@ __global__ void matrixTransposeKernel(const float* A, float* result, int n, cubl
     cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n, &beta, A, n, result, n);
 }
 
+void printFloatArray(const float arr[], int size) {
+    std::cout << "Array of floats: ";
+    for (int i = 0; i < size; ++i) {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << std::endl;
+}
 // CUDA-accelerated rgf1sided function
 
 void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_off_diag) {
@@ -105,6 +112,14 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
     // Copy matrices from host to device
     cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
     cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
+    // std::cout << "printing A: \n"; 
+    // printFloatArray(input_A.getMat(), size);
+    // std::cout << "printing G: \n"; 
+    // printFloatArray(input_G.getMat(), size);
+    // std::cout << "printing A from CUDA: \n"; 
+    // printFloatArray(A, size);
+    // std::cout << "printing G from CUDA: \n"; 
+    // printFloatArray(G, size);
 
     // TODO, prob not the best optimized way to do this calculation
     // Allocate memory for Matrix specifics on the GPU
@@ -136,7 +151,11 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
 
     // 0. Inverse of the first block
     // TODO, double check indexes (this is the case with all the functions calls)
-    matrixInversionKernel<<<1, 1>>>(A, G, blockSize, cublasHandle);
+    matrixInversionKernel(A, G, blockSize, cublasHandle);
+    // std::cout << "printing A: \n"; 
+    // printFloatArray(A, size);
+    // std::cout << "printing G: \n"; 
+    // printFloatArray(G, size);
 
     int kernels_num_blocks = nblocks; // TODO, find the optimal combination
     int kernels_num_threads = 1; // TODO, find the optimal combination
@@ -155,7 +174,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
             (AGi, &(A_updiag[(i - 1)*blockSize*blockSize]), AAi, blockSize);
         matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>
             (&(A_mdiag[i*blockSize*blockSize]), AAi, AGi, blockSize);
-        matrixInversionKernel<<<1, 1>>>
+        matrixInversionKernel
             (AGi, &(G_mdiag[i * blockSize * blockSize]), blockSize, cublasHandle);
 
         // Free temporary GPU memory
@@ -180,7 +199,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
                 (Glf, -1, &(G_lodiag[i * blockSize * blockSize]), blockSize);
 
             if (sym_mat) {
-                matrixTransposeKernel<<<kernels_num_blocks, kernels_num_threads>>>
+                matrixTransposeKernel
                     (&(G_lodiag[i * blockSize * blockSize]), &(G_updiag[i * blockSize * blockSize]), blockSize, cublasHandle);
             } else {
                 float *Guf, *Guf1;
