@@ -355,6 +355,28 @@ Matrix generateFixedMatrixOfSize8() {
     return result;
 }
 
+// fixed matrix; matrixSize = 4, blocksize = 2, bandwidth = 1
+// isSymmetric = true
+Matrix generateFixedMatrixOfSize4() {
+    int N = 4;
+    float given_matrix[N][N] = {{1, 0, 0, 0},
+                                {0, 2, 0, 0},
+                                {0, 0, 3, 0},
+                                {0, 0, 0, 4}};
+    int total_elements = N * N;
+    float *oneDArray = (float *)malloc(total_elements * sizeof(float));
+    int index = 0;
+    for (int i = 0; i < N; i++) {
+        for (int j = 0; j < N; j++) {
+            oneDArray[index] = given_matrix[i][j];
+            index++;
+        }
+    }
+    Matrix result(N, oneDArray);
+    free(oneDArray);
+    return result;
+}
+
 /*
     Make a matrix symmetric;
 */
