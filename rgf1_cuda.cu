@@ -1,8 +1,30 @@
+#include "rgf1.hpp"
+
 #include <cuda_runtime.h>
 #include "rgf1_cuda.hpp" // TODO, uncomment once figured DaVinci sudo problem
 #include <cublas_v2.h>
 // #include <cublas.h>
 #include <cusolverDn.h>
+
+// TODO, not that the cuSolver we are using now is the Dense, check whether we have to use the sparse one
+
+void printFloatArray(const float arr[], int size) {
+    // std::cout << "Array of floats: \n";
+    for (int i = 0; i < size; ++i) {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
+void printFloatArrayFromCuda(const float arr[], int size) {
+    float tempResult[size];
+    cudaMemcpy(tempResult, arr, sizeof(float) * size, cudaMemcpyDeviceToHost);
+    // std::cout << "Array of floats from GPU: \n";
+    for (int i = 0; i < size; ++i) {
+        std::cout << tempResult[i] << " ";
+    }
+    std::cout << std::endl;
+}
 
 // CUDA Kernel for a specific matrix operation
 // Note, thanks to dynamic parallelism on cuda 5.0 and over, it IS possible to launch a kernel inside another kernel
@@ -42,149 +64,54 @@ __global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
     }
 }
 
-// TODO, test this function
-// TODO, after testing you can also delete all the messages if you want
-// TODO, note this is declared as a kernel, but the function cublasSgetrfBatched is already a kernel, so it would make
-//      more sense to declare this as just a C++ function (without the global) 
-void matrixInversionKernel(float *A, float *result, int n, cublasHandle_t cublasHandle) {
-    // Code inspired by this stackoverflow https://stackoverflow.com/questions/37731103/cublas-matrix-inverse-much-slower-than-matlab
-    // NOTE as mentioned the function cublasSgetriBatched is for SMALL matrixes:
-    //      "This function is intended to be used for matrices of small sizes where the launch overhead is a significant factor."
-    // cit. https://docs.nvidia.com/cuda/cublas/index.html#cublas-t-getribatched
-
-    // TODO, for now comment it out, NOTE that the inversion function is wrong as it expect a float**  (=matrix and NOT an array, which is what we are passing)
-    // int* dLUPivots; // Pivoting array
-    // int* dLUInfo; // Device array to store inversion status
-    // int batchSize = 1; // Assuming a single matrix inversion
-
-    // cudaMalloc(&dLUPivots, n * sizeof(int));
-    // cudaMalloc(&dLUInfo, sizeof(int));
-
-    // cublasSgetrfBatched(cublasHandle, n, &A, n, dLUPivots, dLUInfo, batchSize); // RIP does not work, NOTE it expect a float** NOT a float*
-    // cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
-
-    // cublasSgetriBatched(cublasHandle, n, &A, n, dLUPivots, &result, n, dLUInfo, batchSize);
-    // cudaDeviceSynchronize(); // TODO, not sure i need this sync the previous kernel
-
-    // cudaFree(dLUPivots);
-//     // cudaFree(dLUInfo);
-
-/// STUFF FROM CHATGPT that is NOT working lol
-// V1
-// // Create a temporary matrix on the device
-//     // float *d_A, *d_result;
-//     // cudaMalloc(&d_A, n * n * sizeof(float));
-//     // cudaMalloc(&d_result, n * n * sizeof(float));
-//     // cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
-
-//     // // Allocate memory for the pivot array on the device
-//     // int *d_ipiv;
-//     // cudaMalloc(&d_ipiv, n * sizeof(int));
-
-//     // // Perform LU decomposition
-//     // cublasSgetrf(cublasHandle, n, n, d_A, n, d_ipiv);
-
-//     // // Perform matrix inversion using the LU decomposition
-//     // cublasSgetri(cublasHandle, n, d_A, n, d_ipiv, d_result, n);
-
-//     // // Copy the inverted matrix back to the host memory
-//     // cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
-
-//     // // Free the allocated memory on the device
-//     // cudaFree(d_A);
-//     // cudaFree(d_result);
-//     // cudaFree(d_ipiv);
-
-
-// V2
-// // Create a temporary matrix on the device
-//     cusolverDnHandle_t handle;
-//     cusolverDnCreate(&handle);
-
-//     float *d_A, *d_result;
-//     cudaMalloc(&d_A, n * n * sizeof(float));
-//     cudaMalloc(&d_result, n * n * sizeof(float));
-
-//     // Copy the input matrix A to the device
-//     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
-
-//     // Perform LU decomposition on the device
-//     int *ipiv;
-//     cudaMalloc(&ipiv, n * sizeof(int));
-//     cusolverDnSgetrf(handle, n, n, d_A, n, d_result, ipiv, nullptr);
-
-//     // Perform matrix inversion on the device
-//     cusolverDnSgetri(handle, n, d_result, n, ipiv, nullptr, 0, nullptr);
-
-//     // Copy the result back to the host
-//     cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
-
-//     // Clean up
-//     cudaFree(d_A);
-//     cudaFree(d_result);
-//     cudaFree(ipiv);
-//     cusolverDnDestroy(handle);
-
-// V3
-    // int lda = n;
-    // int *devInfo = nullptr;
-    // float *d_A = nullptr;
-    // int lwork = 0;
-    // float one = 1.0f;
-
-    // cudaMalloc((void**)&devInfo, sizeof(int));
-    // cudaMalloc((void**)&d_A, sizeof(float) * n * n);
-
-    // // Copy input matrix to device
-    // cudaMemcpy(d_A, A, sizeof(float) * n * n, cudaMemcpyHostToDevice);
-
-    // // Create a handle for cuSolver
-    // cusolverDnHandle_t cusolverHandle;
-    // cusolverDnCreate(&cusolverHandle);
-
-    // // LU factorization workspace size query
-    // cusolverDnSgetrf_bufferSize(cusolverHandle, n, n, d_A, lda, &lwork);
-
-    // // Perform LU factorization
-    // cudaMalloc((void**)&d_A, sizeof(float) * n * n);
-    // int *d_ipiv = nullptr;
-    // cudaMalloc((void**)&d_ipiv, sizeof(int) * n);
-    // cusolverDnSgetrf(cusolverHandle, n, n, d_A, lda, nullptr, d_ipiv, devInfo);
-
-    // // Check for factorization success
-    // int devInfo_h = 0;
-    // cudaMemcpy(&devInfo_h, devInfo, sizeof(int), cudaMemcpyDeviceToHost);
-
-    // if (devInfo_h != 0) {
-    //     std::cerr << "Factorization failed: Matrix is singular." << std::endl;
-    //     return;
-    // }
-
-    // // Solve the system of linear equations for each column of the identity matrix
-    // int *d_pivot = nullptr;
-    // cudaMalloc((void**)&d_pivot, sizeof(int) * n);
-    // float *d_identity = nullptr;
-    // cudaMalloc((void**)&d_identity, sizeof(float) * n * n);
-    // cudaMemcpy(d_identity, result, sizeof(float) * n * n, cudaMemcpyHostToDevice);
-
-    // cublasStrsm(cublasHandle, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_LOWER, CUBLAS_OP_N,
-    //         CUBLAS_DIAG_UNIT, n, n, reinterpret_cast<const float*>(&one), d_A, lda, d_identity, n);
-
-
-    // cublasStrsm(cublasHandle, CUBLAS_SIDE_LEFT, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-    //         CUBLAS_DIAG_NON_UNIT, n, n, reinterpret_cast<const float*>(&one), d_A, lda, d_identity, n);
-
-
-    // // Copy the result back to the host
-    // cudaMemcpy(result, d_identity, sizeof(float) * n * n, cudaMemcpyDeviceToHost);
-
-    // // Clean up
-    // cudaFree(devInfo);
-    // cudaFree(d_A);
-    // cudaFree(d_pivot);
-    // cudaFree(d_identity);
-    // cusolverDnDestroy(cusolverHandle);
+// Function to create an identity matrix of size n x n
+float* createIdentityMatrix(int n) {
+    float* identityMatrix = (float*) malloc(n * n * sizeof(float));
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            int index = i * n + j;
+            identityMatrix[index] = (i == j) ? 1 : 0;
+        }
+    }
+    return identityMatrix;
 }
+
+// TODO, test this function
+void matrixInversionKernel(float *A, float *result, int n, cusolverDnHandle_t cusolverHandle) {
+    // Create the Identity matrix, TODO, just make it directly on GPU if possible
+    float *identity_matrix = createIdentityMatrix(n);
+    int *d_info = nullptr; /* error info */
+
+    // Create a temporary matrix on the device
+    float *d_A, *d_identity, *d_work;
+    cudaMalloc(&d_A, n * n * sizeof(float));
+    cudaMalloc(&d_identity, n * n * sizeof(float));
+    cudaMalloc(&d_work, n * n * sizeof(float));
+    int *ipiv;
+    cudaMalloc(&ipiv, n * sizeof(int));
+
+    // Copy the input matrix A to the device
+    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Perform LU decomposition on the device
+    cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL, d_info); // Not using PIVOT for now
+
+    // Solving AX = I  , where X is the result_matrix, and I is the identity_matrix. Since AA^(-1) = I
+    // It saves on the result_matrix (identity) the answer
+    cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL, d_identity, n, d_info); // Not using PIVOT for now
+    
+    std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n"; 
+    printFloatArrayFromCuda(d_identity, n * n);
+    cudaMemcpy(result, d_identity, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Clean up
+    cudaFree(d_A);
+    cudaFree(d_identity);
+    cudaFree(d_work);
+    cudaFree(ipiv);
+}
+
 
 // TODO, test this function
 void matrixTransposeKernel(const float* A, float* result, int n, cublasHandle_t cublasHandle) {
@@ -195,23 +122,7 @@ void matrixTransposeKernel(const float* A, float* result, int n, cublasHandle_t 
     cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n, &beta, A, n, result, n);
 }
 
-void printFloatArray(const float arr[], int size) {
-    // std::cout << "Array of floats: \n";
-    for (int i = 0; i < size; ++i) {
-        std::cout << arr[i] << " ";
-    }
-    std::cout << std::endl;
-}
 
-void printFloatArrayFromCuda(const float arr[], int size) {
-    float tempResult[size];
-    cudaMemcpy(tempResult, arr, sizeof(float) * size, cudaMemcpyDeviceToHost);
-    // std::cout << "Array of floats from GPU: \n";
-    for (int i = 0; i < size; ++i) {
-        std::cout << tempResult[i] << " ";
-    }
-    std::cout << std::endl;
-}
 // CUDA-accelerated rgf1sided function
 
 void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_off_diag) {
@@ -224,11 +135,10 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
-    cublasCreate(&cublasHandle);
+    cusolverDnHandle_t cusolverHandle;
 
-    // TODO, check if we need the cuSolver
-    // cusolverDnHandle_t cusolverH = NULL;
-    // cusolverDnCreate(&cusolverH);
+    cublasCreate(&cublasHandle);
+    cusolverDnCreate(&cusolverHandle);
 
     // Allocate memory for matrices on the GPU
     float *A, *G;
@@ -279,7 +189,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
 
     // 0. Inverse of the first block
     // TODO, double check indexes (this is the case with all the functions calls)
-    matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cublasHandle); // TODO, Does not do anything
+    matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle); // TODO, Does not do anything
     std::cout << "After 0. Inverse of the first block\n";
     std::cout << "printing A_mdiag from CUDA: \n"; 
     printFloatArrayFromCuda(A_mdiag, size_mdiag / sizeof(float));
@@ -313,7 +223,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
         matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>
             (&(A_mdiag[i*blockSize*blockSize]), AAi, AGi, blockSize);
         matrixInversionKernel
-            (AGi, &(G_mdiag[i * blockSize * blockSize]), blockSize, cublasHandle);
+            (AGi, &(G_mdiag[i * blockSize * blockSize]), blockSize, cusolverHandle);
 
         // Free temporary GPU memory
         cudaFree(AAi);
@@ -328,8 +238,23 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
     printFloatArrayFromCuda(A_lodiag, size_updiag / sizeof(float));
     std::cout << "printing G_mdiag from CUDA: \n"; 
     printFloatArrayFromCuda(G_mdiag, size_mdiag / sizeof(float));
+    std::cout << "----------------------------------------------------------------------- \n"; 
+
 
     // 2. Backward substitution
+    std::cout << "Before 2. Backward substitution\n";
+    std::cout << "printing A_updiag from CUDA: \n"; 
+    printFloatArrayFromCuda(A_updiag, size_updiag / sizeof(float));
+    std::cout << "printing A_mdiag from CUDA: \n"; 
+    printFloatArrayFromCuda(A_mdiag, size_mdiag / sizeof(float));
+    std::cout << "printing A_lodiag from CUDA: \n"; 
+    printFloatArrayFromCuda(A_lodiag, size_updiag / sizeof(float));
+    std::cout << "printing G_updiag from CUDA: \n"; 
+    printFloatArrayFromCuda(G_updiag, size_updiag / sizeof(float));
+    std::cout << "printing G_mdiag from CUDA: \n"; 
+    printFloatArrayFromCuda(G_mdiag, size_mdiag / sizeof(float));
+    std::cout << "printing G_lodiag from CUDA: \n"; 
+    printFloatArrayFromCuda(G_lodiag, size_updiag / sizeof(float));
     for (int i = nblocks - 2; i >= 0; --i) {
         float *Glf, *Glf1;
         size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
@@ -377,6 +302,25 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
         cudaFree(Glf);
         cudaFree(Glf1);
     }
+    std::cout << "After 2. Backward substitution\n";
+    std::cout << "printing A_updiag from CUDA: \n"; 
+    printFloatArrayFromCuda(A_updiag, size_updiag / sizeof(float));
+    std::cout << "printing A_mdiag from CUDA: \n"; 
+    printFloatArrayFromCuda(A_mdiag, size_mdiag / sizeof(float));
+    std::cout << "printing A_lodiag from CUDA: \n"; 
+    printFloatArrayFromCuda(A_lodiag, size_updiag / sizeof(float));
+    std::cout << "printing G_updiag from CUDA: \n"; 
+    printFloatArrayFromCuda(G_updiag, size_updiag / sizeof(float));
+    std::cout << "printing G_mdiag from CUDA: \n"; 
+    printFloatArrayFromCuda(G_mdiag, size_mdiag / sizeof(float));
+    std::cout << "printing G_lodiag from CUDA: \n"; 
+    printFloatArrayFromCuda(G_lodiag, size_updiag / sizeof(float));
+    std::cout << "----------------------------------------------------------------------- \n";
+
+    std::cout << "printing A from CUDA: \n"; 
+    printFloatArrayFromCuda(A, matrix_array_size);
+    std::cout << "printing G from CUDA: \n"; 
+    printFloatArrayFromCuda(G, matrix_array_size);
 
     // Copy results back to host
     cudaMemcpy(input_A.getMat(), A, size, cudaMemcpyDeviceToHost);
@@ -400,6 +344,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
+    cusolverDnDestroy(cusolverHandle);
 }
 
 // TEMP main to test stuff out
@@ -418,8 +363,18 @@ int main(int argc, const char *argv[]) {
     tempResult.convertDenseToBlkTridiag( BLOCK_SIZE); // G has same blockSize as inputMatrix
     rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
+    inputMatrix.printB();
+    tempResult.printB();
+    std::cout << "##########################################/n"; 
 
-    inputMatrix.printM();
-    tempResult.printM();
+    // Check against the already implemented RGF1 on C++
+    Matrix tempResult_cpp(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+    tempResult_cpp.convertDenseToBlkTridiag( BLOCK_SIZE); // G has same blockSize as inputMatrix
+    
+    rgf1sided(inputMatrix, tempResult_cpp, false, true);
+
+    inputMatrix.printB();
+    tempResult_cpp.printB();
+
 
 }

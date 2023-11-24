@@ -5,7 +5,7 @@ MPI_FLAGS_MACOS := -I/usr/local/opt/lapack/include -I/usr/local/opt/openblas/inc
 MPI_FLAGS_OTHERS := -lblas -llapack -llapacke
 MPI_FLAGS_DAVINCI := -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib -lopenblas -llapack
 CUDA := nvcc
-CUDA_FLAGS_OTHERS := -lcublas
+CUDA_FLAGS_OTHERS := -lcublas -lcusolver
 
 print: run
 	python3 parse_output.py
@@ -33,4 +33,6 @@ run_cuda: compile_cuda
 
 compile_cuda:
 # $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
-	$(CUDA) -o test_cuda temp.cu -lcusolver $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+	$(CUDA) -o test_cuda temp.cu  $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+# $(CUDA) -o test_cuda cusolver_getrf_example.cu  $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+# $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp rgf1.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
