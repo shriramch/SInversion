@@ -32,5 +32,5 @@ run_cuda: compile_cuda
 	./test_cuda
 
 compile_cuda:
-	$(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
-# $(CUDA) -o test_cuda hello_world.cu $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+# $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+	$(CUDA) -o test_cuda temp.cu -lcusolver $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
