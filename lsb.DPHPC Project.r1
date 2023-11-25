@@ -1,0 +1,22 @@
+# Sysname : Linux
+# Nodename: DESKTOP-10LILOM
+# Release : 5.15.133.1-microsoft-standard-WSL2
+# Version : #1 SMP Thu Oct 5 21:02:42 UTC 2023
+# Machine : x86_64
+# Execution time and date (UTC): Sat Nov 25 11:04:33 2023
+# Execution time and date (local): Sat Nov 25 12:04:33 2023
+# MPI execution on rank 1 with 2 processes in world
+# Reported time measurements are in microseconds
+# pretty output format
+       id         time     overhead 
+         0 1083.853172            0 
+         1 588.748901            0 
+         2 361.782303            0 
+         3 419.360214            0 
+         4 350.656082            0 
+         5 350.726379            0 
+         6 403.503685            0 
+         7 373.814667            0 
+         8 345.298248            1 
+         9 510.300308            0 
+# Runtime: 0.022776 s (overhead: 0.004391 %) 10 records

@@ -9,7 +9,7 @@ print: run
 	python3 parse_output.py
 
 run: compile_mpi
-	mpirun -np 2 ./test -m 1024 -b 64 -n 10 -s 0 -o 1
+	mpirun -np 2 ./test -m 256 -b 16 -n 10 -s 0 -o 1
 
 ifeq ($(UNAME), Darwin)
 compile_mpi:
@@ -29,13 +29,13 @@ compile_rgf1:
 	$(MPI) -o test *.cpp $(CXXFLAGS1) $(MPI_FLAGS_OTHERS) -llsb
 
 lsb1: compile_rgf1
-	mpirun -np 1 ./test -m 1024 -b 64 -n 10 -s 0 -o 1 > run.txt
+	mpirun -np 1 ./test -m 256 -b 16 -n 10 -s 0 -o 1 > run.txt
 
 compile_rgf2:
 	$(MPI) -o test *.cpp $(CXXFLAGS2) $(MPI_FLAGS_OTHERS) -llsb
 
 lsb2: compile_rgf2
-	mpirun -np 2 ./test -m 1024 -b 64 -n 10 -s 0 -o 1 > run.txt
+	mpirun -np 2 ./test -m 256 -b 16 -n 10 -s 0 -o 1 > run.txt
 
 clean:
 	rm -fR main plot_out/* run.txt

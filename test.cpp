@@ -126,9 +126,9 @@ int main(int argc, const char *argv[]) {
 
         // Vector of algorithm functions and their names
         std::vector<std::pair<AlgorithmFunction, std::string>> algorithms = {
-#ifdef ENABLE_LIBLSB1
+#if defined ENABLE_LIBLSB1
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"}
-#elif ENABLE_LIBLSB2
+#elif defined ENABLE_LIBLSB2
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
 #else
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
