@@ -1,5 +1,7 @@
-#include <cusolverDn.h>
 #include <iostream>
+#include <cuda_runtime.h>
+#include <cublas_v2.h>
+#include <cusolverDn.h>
 
 void printFloatArray(const float arr[], int size) {
     // std::cout << "Array of floats: \n";
@@ -72,20 +74,42 @@ int main() {
     return 0;
 }
 
-// NOT WORKING .-.
+
+
+
+
+// Now it is working
 void Matrix::matrixTransposeKernel(const float* A, float* result, int n) {
-    
     cublasHandle_t cublasHandle;
     cublasCreate(&cublasHandle);
     
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    // Transpose A and store the result in 'result'
-    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n, &beta, A, n, result, n);
+    // Allocate device memory for the input and output matrices
+    float *d_A, *d_result;
+    cudaMalloc((void **)&d_A, n * n * sizeof(float));
+    cudaMalloc((void **)&d_result, n * n * sizeof(float));
 
+    // Copy the input matrix A to device memory
+    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Perform the transposition
+    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, d_A, n, &beta, NULL, n, d_result, n);
+
+    // Copy the transposed matrix back to the host memory
+    cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Free device memory
+    cudaFree(d_A);
+    cudaFree(d_result);
+
+    // Destroy the cuBLAS handle
     cublasDestroy(cublasHandle);
 }
+
+
+
 
 // Helper github with example (there are also streams): https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuSOLVER/getrf/cusolver_getrf_example.cu
 // Note:
@@ -96,6 +120,7 @@ void Matrix::invCUDA(int n, const float *A, float *result) {
     // Create the Identity matrix, TODO, just make it directly on GPU if possible
     float *identity_matrix = createIdentityMatrix(n);
     int *d_info = nullptr; /* error info */
+    cudaMalloc(&d_info, sizeof(int));
 
     // Handle
     cusolverDnHandle_t handle;
@@ -120,24 +145,26 @@ void Matrix::invCUDA(int n, const float *A, float *result) {
     int *ipiv;
     cudaMalloc(&ipiv, n * sizeof(int));
     cusolverDnSgetrf(handle, n, n, d_A, n, d_work, NULL, d_info); // Not using PIVOT for now
-    
+
     std::cout << "printing d_A from CUDA after cusolverDnSgetrf: \n"; 
     printFloatArrayFromCuda(d_A, n * n);
 
     // Solve for each column of the identity matrix to obtain the inverse
     // It saves on the result_matrix (identity) the answer
     cusolverDnSgetrs(handle, CUBLAS_OP_N, n, n, d_A, n, NULL, d_identity, n, d_info); // Not using PIVOT for now
-    
+
     std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n"; 
     printFloatArrayFromCuda(d_identity, n * n);
 
     cudaMemcpy(result, d_identity, n * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Clean up
+    free(identity_matrix);
     cudaFree(d_A);
     cudaFree(d_work);
     cudaFree(ipiv);
     cudaFree(d_identity);
+    cudaFree(d_info);
 
     cusolverDnDestroy(handle);
 }
