@@ -81,6 +81,7 @@ void matrixInversionKernel(float *A, float *result, int n, cusolverDnHandle_t cu
     // Create the Identity matrix, TODO, just make it directly on GPU if possible
     float *identity_matrix = createIdentityMatrix(n);
     int *d_info = nullptr; /* error info */
+    cudaMalloc(&d_info, sizeof(int));
 
     // Create a temporary matrix on the device
     float *d_A, *d_identity, *d_work;
@@ -106,22 +107,39 @@ void matrixInversionKernel(float *A, float *result, int n, cusolverDnHandle_t cu
     cudaMemcpy(result, d_identity, n * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Clean up
+    free(identity_matrix);
     cudaFree(d_A);
-    cudaFree(d_identity);
     cudaFree(d_work);
     cudaFree(ipiv);
+    cudaFree(d_identity);
+    cudaFree(d_info);
 }
 
 
-// TODO, test this function
 void matrixTransposeKernel(const float* A, float* result, int n, cublasHandle_t cublasHandle) {
+
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    // Transpose A and store the result in 'result'
-    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n, &beta, A, n, result, n);
-}
+    // Allocate device memory for the input and output matrices
+    float *d_A, *d_result;
+    cudaMalloc((void **)&d_A, n * n * sizeof(float));
+    cudaMalloc((void **)&d_result, n * n * sizeof(float));
 
+    // Copy the input matrix A to device memory
+    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Perform the transposition
+    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, d_A, n, &beta, NULL, n, d_result, n);
+
+    // Copy the transposed matrix back to the host memory
+    cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+
+    // Free device memory
+    cudaFree(d_A);
+    cudaFree(d_result);
+
+}
 
 // CUDA-accelerated rgf1sided function
 
@@ -365,7 +383,7 @@ int main(int argc, const char *argv[]) {
 
     inputMatrix.printB();
     tempResult.printB();
-    std::cout << "##########################################/n"; 
+    std::cout << "########################################## \n"; 
 
     // Check against the already implemented RGF1 on C++
     Matrix tempResult_cpp(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
