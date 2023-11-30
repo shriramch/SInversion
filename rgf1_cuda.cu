@@ -227,11 +227,19 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
     printFloatArrayFromCuda(A_lodiag, size_updiag / sizeof(float));
     std::cout << "printing G_mdiag from CUDA: \n"; 
     printFloatArrayFromCuda(G_mdiag, size_mdiag / sizeof(float));
+    
+    
+    // moved declaration outside of loop
+    float *AAi, *AGi;
+    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
+    cudaMalloc(&AAi, blockSizeBytes);
+    cudaMalloc(&AGi, blockSizeBytes);
+    
     for (int i = 1; i < nblocks; ++i) {
-        float *AAi, *AGi;
-        size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
-        cudaMalloc(&AAi, blockSizeBytes);
-        cudaMalloc(&AGi, blockSizeBytes);
+        // float *AAi, *AGi;
+        // size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
+        // cudaMalloc(&AAi, blockSizeBytes);
+        // cudaMalloc(&AGi, blockSizeBytes);
 
         // TODO, check how to parallelize, since u need the previous G
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
@@ -244,9 +252,13 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
             (AGi, &(G_mdiag[i * blockSize * blockSize]), blockSize, cusolverHandle);
 
         // Free temporary GPU memory
-        cudaFree(AAi);
-        cudaFree(AGi);
+        // cudaFree(AAi);
+        // cudaFree(AGi);
     }
+    // Free temporary GPU memory
+    cudaFree(AAi);
+    cudaFree(AGi);
+    
     std::cout << "After 1. Forward substitution (performed left to right)\n";
     std::cout << "printing A_updiag from CUDA: \n"; 
     printFloatArrayFromCuda(A_updiag, size_updiag / sizeof(float));
@@ -273,11 +285,24 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
     printFloatArrayFromCuda(G_mdiag, size_mdiag / sizeof(float));
     std::cout << "printing G_lodiag from CUDA: \n"; 
     printFloatArrayFromCuda(G_lodiag, size_updiag / sizeof(float));
+    
+    float *Glf, *Glf1;
+    cudaMalloc(&Glf, blockSizeBytes);
+    cudaMalloc(&Glf1, blockSizeBytes);
+    
+    // if (sym_mat && save_off_diag) {
+    //     } else {
+    //     float *Guf, *Guf1;
+    //     cudaMalloc(&Guf, blockSizeBytes);
+    //     cudaMalloc(&Guf1, blockSizeBytes);
+    // }
+
+
     for (int i = nblocks - 2; i >= 0; --i) {
-        float *Glf, *Glf1;
-        size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
-        cudaMalloc(&Glf, blockSizeBytes);
-        cudaMalloc(&Glf1, blockSizeBytes);
+        // float *Glf, *Glf1;
+        // size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
+        // cudaMalloc(&Glf, blockSizeBytes);
+        // cudaMalloc(&Glf1, blockSizeBytes);
 
         matrixMultiplyKernel<<<kernels_num_blocks, kernels_num_threads>>>
             (&(G_mdiag[(i + 1) * blockSize * blockSize]), &(A_lodiag[i * blockSize * blockSize]), Glf1, blockSize);
@@ -317,9 +342,21 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat, bool save_of
             (&(G_mdiag[i * blockSize * blockSize]), Glf, &(G_mdiag[i * blockSize * blockSize]), blockSize);
 
         // Free temporary GPU memory
-        cudaFree(Glf);
-        cudaFree(Glf1);
+        // cudaFree(Glf);
+        // cudaFree(Glf1);
     }
+
+    // Free temporary GPU memory
+    cudaFree(Glf);
+    cudaFree(Glf1);
+
+    // if (sym_mat && save_off_diag) {
+    //     } else {
+    //     cudaFree(Guf);
+    //     cudaFree(Guf1);
+    // }      
+        
+
     std::cout << "After 2. Backward substitution\n";
     std::cout << "printing A_updiag from CUDA: \n"; 
     printFloatArrayFromCuda(A_updiag, size_updiag / sizeof(float));
