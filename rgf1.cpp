@@ -31,17 +31,6 @@ void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
                   AAi);
         A.mmSub(blockSize, &(A.mdiag[i * blockSize * blockSize]), AAi, AGi);
         A.invBLAS(blockSize, AGi, &(G.mdiag[i * blockSize * blockSize]));
-        float *AAi = new float[blockSize * blockSize](),
-              *AGi = new float[blockSize * blockSize]();
-        A.mmmBLAS(blockSize, &(A.lodiag[(i - 1) * blockSize * blockSize]),
-                  &(G.mdiag[(i - 1) * blockSize * blockSize]), AGi);
-        A.mmmBLAS(blockSize, AGi, &(A.updiag[(i - 1) * blockSize * blockSize]),
-                  AAi);
-        A.mmSub(blockSize, &(A.mdiag[i * blockSize * blockSize]), AAi, AGi);
-        A.invBLAS(blockSize, AGi, &(G.mdiag[i * blockSize * blockSize]));
-
-        delete[] AAi;
-        delete[] AGi;
     }
 
     for (int i = nblocks - 2; i >= 0; --i) {

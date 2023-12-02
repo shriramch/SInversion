@@ -359,10 +359,8 @@ Matrix generateFixedMatrixOfSize8() {
 // isSymmetric = true
 Matrix generateFixedMatrixOfSize4() {
     int N = 4;
-    float given_matrix[N][N] = {{1, 0, 0, 0},
-                                {0, 2, 0, 0},
-                                {0, 0, 3, 0},
-                                {0, 0, 0, 4}};
+    float given_matrix[N][N] = {
+        {1, 0, 0, 0}, {0, 2, 0, 0}, {0, 0, 3, 0}, {0, 0, 0, 4}};
     int total_elements = N * N;
     float *oneDArray = (float *)malloc(total_elements * sizeof(float));
     int index = 0;

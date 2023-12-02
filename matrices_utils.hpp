@@ -7,28 +7,27 @@
 #include <iostream>
 #include <lapacke.h>
 
-/* Symmetric matrix representation
-   n: size of the matrix
-   blockSize: size of the block
-   mat: matrix in 1D array;
-   mdiag: main diagonal blocks in 1D array;
-   updiag: upper diagonal blocks in 1D array;
-   lodiag: lower diagonal blocks in 1D array
-*/
+/**
+ *  Symmetric matrix representation
+ *  n: size of the matrix
+ *  blockSize: size of the block
+ *  mat: matrix in 1D array;
+ *  mdiag: main diagonal blocks in 1D array;
+ *  updiag: upper diagonal blocks in 1D array;
+ *  lodiag: lower diagonal blocks in 1D array
+ */
+
 class Matrix {
     int matrixSize, blockSize;
-    float *mat; // indexing: [row][column] = [i][j] = i*blockSize + j
+    float *mat;
     bool allclose(const float *a, const float *b, std::size_t size,
                   double rtol = 1e-3, double atol = 1e-5, bool isPrint = true);
 
 public:
-    float *mdiag, *updiag, *lodiag; // indexing: [b][i][j] =
-                                    // b*blockSize*blockSize + i*blockSize + j
+    float *mdiag, *updiag, *lodiag;
     Matrix(int);
     Matrix(int, float *);
-    // Copy constructor
     Matrix(const Matrix &other);
-    // Copy assignment operator
     Matrix &operator=(const Matrix &other);
     void copyMatrixData(const Matrix &other);
     float *getMat();

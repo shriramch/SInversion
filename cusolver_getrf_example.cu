@@ -1,8 +1,9 @@
-// Code from github with example (there are also streams): https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuSOLVER/getrf/cusolver_getrf_example.cu
+// Code from github with example (there are also streams):
+// https://github.com/NVIDIA/CUDALibrarySamples/blob/master/cuSOLVER/getrf/cusolver_getrf_example.cu
 
 #include <cblas.h>
-#include <lapacke.h>
 #include <iostream>
+#include <lapacke.h>
 
 void printFloatArray(const double arr[], int size) {
     // std::cout << "Array of floats: \n";
@@ -87,7 +88,7 @@ int main(int argc, char *argv[]) {
     const int lda = m;
     const int ldb = m;
 
-    /*       
+    /*
      *       | 1 2 3  |
      *   A = | 4 5 6  |
      *       | 7 8 10 |
@@ -109,7 +110,7 @@ int main(int argc, char *argv[]) {
 
     const std::vector<double> A = {1.0, 0, 0, 0, 2, 0, 0, 0, 3};
     const std::vector<double> B = {1.0, 0, 0, 0, 1, 0, 0, 0, 1};
-    std::vector<double> X(m*m, 0);
+    std::vector<double> X(m * m, 0);
     std::vector<double> LU(lda * m, 0);
     std::vector<int> Ipiv(m, 0);
     int info = 0;
@@ -145,35 +146,44 @@ int main(int argc, char *argv[]) {
     CUSOLVER_CHECK(cusolverDnSetStream(cusolverH, stream));
 
     /* step 2: copy A to device */
-    CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_A), sizeof(double) * A.size()));
-    CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_B), sizeof(double) * B.size()));
-    CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_Ipiv), sizeof(int) * Ipiv.size()));
+    CUDA_CHECK(
+        cudaMalloc(reinterpret_cast<void **>(&d_A), sizeof(double) * A.size()));
+    CUDA_CHECK(
+        cudaMalloc(reinterpret_cast<void **>(&d_B), sizeof(double) * B.size()));
+    CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_Ipiv),
+                          sizeof(int) * Ipiv.size()));
     CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_info), sizeof(int)));
 
-    CUDA_CHECK(
-        cudaMemcpyAsync(d_A, A.data(), sizeof(double) * A.size(), cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(
-        cudaMemcpyAsync(d_B, B.data(), sizeof(double) * B.size(), cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_A, A.data(), sizeof(double) * A.size(),
+                               cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_B, B.data(), sizeof(double) * B.size(),
+                               cudaMemcpyHostToDevice, stream));
 
     /* step 3: query working space of getrf */
-    CUSOLVER_CHECK(cusolverDnDgetrf_bufferSize(cusolverH, m, m, d_A, lda, &lwork));
+    CUSOLVER_CHECK(
+        cusolverDnDgetrf_bufferSize(cusolverH, m, m, d_A, lda, &lwork));
 
-    CUDA_CHECK(cudaMalloc(reinterpret_cast<void **>(&d_work), sizeof(double) * lwork));
+    CUDA_CHECK(
+        cudaMalloc(reinterpret_cast<void **>(&d_work), sizeof(double) * lwork));
 
     /* step 4: LU factorization */
     if (pivot_on) {
-        CUSOLVER_CHECK(cusolverDnDgetrf(cusolverH, m, m, d_A, lda, d_work, d_Ipiv, d_info));
+        CUSOLVER_CHECK(cusolverDnDgetrf(cusolverH, m, m, d_A, lda, d_work,
+                                        d_Ipiv, d_info));
     } else {
-        CUSOLVER_CHECK(cusolverDnDgetrf(cusolverH, m, m, d_A, lda, d_work, NULL, d_info));
+        CUSOLVER_CHECK(
+            cusolverDnDgetrf(cusolverH, m, m, d_A, lda, d_work, NULL, d_info));
     }
 
     if (pivot_on) {
-        CUDA_CHECK(cudaMemcpyAsync(Ipiv.data(), d_Ipiv, sizeof(int) * Ipiv.size(),
+        CUDA_CHECK(cudaMemcpyAsync(Ipiv.data(), d_Ipiv,
+                                   sizeof(int) * Ipiv.size(),
                                    cudaMemcpyDeviceToHost, stream));
     }
-    CUDA_CHECK(
-        cudaMemcpyAsync(LU.data(), d_A, sizeof(double) * A.size(), cudaMemcpyDeviceToHost, stream));
-    CUDA_CHECK(cudaMemcpyAsync(&info, d_info, sizeof(int), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(LU.data(), d_A, sizeof(double) * A.size(),
+                               cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(&info, d_info, sizeof(int),
+                               cudaMemcpyDeviceToHost, stream));
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -191,13 +201,12 @@ int main(int argc, char *argv[]) {
     print_matrix(m, m, LU.data(), lda);
     printf("=====\n");
 
-
-    std::cout << "printing d_A from CUDA in step 4: \n"; 
+    std::cout << "printing d_A from CUDA in step 4: \n";
     printFloatArrayFromCuda(d_A, A.size());
-    std::cout << "printing d_work from CUDA in step 4: \n"; 
+    std::cout << "printing d_work from CUDA in step 4: \n";
     printFloatArrayFromCuda(d_work, B.size());
 
-// In our case B should be the Identity matrix
+    // In our case B should be the Identity matrix
     /*
      * step 5: solve A*X = B
      *       | 1 |       | -0.3333 |
@@ -213,22 +222,22 @@ int main(int argc, char *argv[]) {
                                         d_A, lda, NULL, d_B, ldb, d_info));
     }
 
-    std::cout << "printing d_A from CUDA after cusolverDnDgetrs: \n"; 
+    std::cout << "printing d_A from CUDA after cusolverDnDgetrs: \n";
     printFloatArrayFromCuda(d_A, A.size());
-    std::cout << "printing d_B from CUDA after cusolverDnDgetrs: \n"; 
+    std::cout << "printing d_B from CUDA after cusolverDnDgetrs: \n";
     printFloatArrayFromCuda(d_B, B.size());
 
-    CUDA_CHECK(
-        cudaMemcpyAsync(X.data(), d_B, sizeof(double) * X.size(), cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(X.data(), d_B, sizeof(double) * X.size(),
+                               cudaMemcpyDeviceToHost, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     printf("X = (matlab base-1)\n");
     print_matrix(m, 1, X.data(), ldb);
     printf("=====\n");
 
-// Added stuff to check against CPU matrix inversion
+    // Added stuff to check against CPU matrix inversion
     int n = m;
-    double *result = (double *)malloc( n * n * sizeof(double));
+    double *result = (double *)malloc(n * n * sizeof(double));
     int *ipiv = (int *)malloc(n * sizeof(int));
     memcpy(result, A.data(), n * n * sizeof(double));
     LAPACKE_dgetrf(LAPACK_ROW_MAJOR, n, n, result, n, ipiv);
@@ -237,7 +246,7 @@ int main(int argc, char *argv[]) {
     printf("result using LAPACKE_dgetrf\n");
     print_matrix(m, m, result, lda);
     printf("=====\n");
-// Added stuff
+    // Added stuff
 
     /* free resources */
     CUDA_CHECK(cudaFree(d_A));

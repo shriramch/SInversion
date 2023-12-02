@@ -1,6 +1,7 @@
 #include "argparse.h"
 #include "matrices_utils.hpp"
 #include "rgf1.hpp"
+// #include "rgf1_cuda.hpp"
 #include "rgf2.hpp"
 
 #if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
@@ -14,31 +15,27 @@
 #include <vector>
 
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
-// Function pointer type for the algorithm (so is easier to test them, they
-// would all expect a Matrix and return another one)
-typedef std::function<void(Matrix &, Matrix &, int, int, bool, bool)>
-    AlgorithmFunction; // input as originalMatrix, resultMatrix, MATRIX_SIZE,
-                       // BLOCK_SIZE
 
-// Base RGF 2-Sided algorithm
+// Function pointer type for the algorithm
+typedef std::function<void(Matrix &, Matrix &, int, int, bool, bool)>
+    AlgorithmFunction;
+
 void rgf2sidedAlgorithm(Matrix &input, Matrix &result, int matrixSize,
                         int blockSize, bool is_symmetric = false,
                         bool save_off_diag = true) {
     rgf2sided(input, result, is_symmetric, save_off_diag);
 }
 
-// follow this convention -- redundant - to change later
 void rgf1sidedAlgorithm(Matrix &input, Matrix &result, int matrixSize,
                         int blockSize, bool is_symmetric = false,
                         bool save_off_diag = true) {
     rgf1sided(input, result, is_symmetric, save_off_diag);
 }
 
-// Another algorithm to test
-// void anotherAlgorithmconst Matrix& input, Matrix& result, int matrixSize, int
-// blockSize) {
-//     // Implement your other algorithm here
-//     // ...
+// void rgf1sidedCUDAAlgorithm(Matrix &input, Matrix &result, int matrixSize,
+//                             int blockSize, bool is_symmetric = false,
+//                             bool save_off_diag = true) {
+//     rgf1sided_cuda(input, result, is_symmetric, save_off_diag);
 // }
 
 typedef struct {
@@ -104,10 +101,11 @@ int main(int argc, const char *argv[]) {
     int processRank;
     MPI_Init(&argc, (char ***)(&argv));
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+
 #if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
     LSB_Init("DPHPC Project", 0);
 #endif
-    // parse options
+
     Config config;
     InitOptions(&config);
     parse(&config, argc, argv);
@@ -115,11 +113,9 @@ int main(int argc, const char *argv[]) {
         // read matrix from file
     } else if (config.matrixSize != 0) {
         // generate matrix
-        // Note, skipping the whole MPI thing here as it will be done internally
-        // in each function if needed
         int MATRIX_SIZE = config.matrixSize;
-        int BLOCK_SIZE =
-            config.blockSize; // MATRIX_SIZE should be divisible by this
+        int BLOCK_SIZE = config.blockSize;
+        assert(MATRIX_SIZE % BLOCK_SIZE == 0);
         int NUM_RUNS = config.numRuns;
         bool IS_SYMMETRIC = config.isSymmetric;
         bool SAVE_OFF_DIAG = config.saveOffDiag;
@@ -132,31 +128,23 @@ int main(int argc, const char *argv[]) {
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
 #else
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
-            {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
+            {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"},
+        // {rgf1sidedCUDAAlgorithm, "rgf1sidedCUDAAlgorithm"},
 #endif
-            // Add more algorithms as needed
         };
-
-        // std::cout << processRank << std::endl;
 
         Matrix inputMatrix =
             generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
-        // Matrix inputMatrix = generateFixedMatrixOfSize8();
         inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
-        // use blas inv result as base result
         float *base_inv = new float[MATRIX_SIZE * MATRIX_SIZE]();
         inputMatrix.invBLAS(MATRIX_SIZE, inputMatrix.getMat(), base_inv);
         Matrix baseResultMatrix(MATRIX_SIZE, base_inv);
         baseResultMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 #if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2
-        // precision is low; the larger the matrix , the lower the precision
-        // compare it to the blas inv result to test the correctness
         for (const auto &algorithm : algorithms) {
-            Matrix tempResult(
-                MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-            tempResult.convertDenseToBlkTridiag(
-                BLOCK_SIZE); // G has same blockSize as inputMatrix
+            Matrix tempResult(MATRIX_SIZE);
+            tempResult.convertDenseToBlkTridiag(BLOCK_SIZE);
             algorithm.first(inputMatrix, tempResult, MATRIX_SIZE, BLOCK_SIZE,
                             IS_SYMMETRIC, SAVE_OFF_DIAG);
             if (processRank == 0) {
@@ -170,17 +158,11 @@ int main(int argc, const char *argv[]) {
         }
 #endif
 
-        // Run all the functions for x times and measure the time
-        // create just a single output, as i have already checked correctness,
-        // now just need the timing of multiple runs
-
 #if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
         for (const auto &algorithm : algorithms) {
             for (int i = 0; i < NUM_RUNS; ++i) {
-                Matrix tempResult(MATRIX_SIZE); // zero initialization, same
-                                                // shape as inputMatrix
-                tempResult.convertDenseToBlkTridiag(
-                    BLOCK_SIZE); // G has same blockSize as in inputMatrix
+                Matrix tempResult(MATRIX_SIZE);
+                tempResult.convertDenseToBlkTridiag(BLOCK_SIZE);
                 LSB_Res();
                 // Run the algorithm
                 algorithm.first(inputMatrix, tempResult, MATRIX_SIZE,
@@ -189,32 +171,6 @@ int main(int argc, const char *argv[]) {
             }
         }
 #else
-
-        // for (const auto &algorithm : algorithms) {
-        //     for (int i = 0; i < NUM_RUNS; ++i) {
-
-        //         Matrix tempResult(MATRIX_SIZE); // zero initialization, same
-        //                                         // shape as inputMatrix
-        //         tempResult.convertDenseToBlkTridiag(
-        //             BLOCK_SIZE); // G has same blockSize as in inputMatrix
-        //         auto start =
-        //             clock(); // decide whether to use this or just clock()
-        //         // Run the algorithm
-        //         algorithm.first(inputMatrix, tempResult, MATRIX_SIZE,
-        //                         BLOCK_SIZE, IS_SYMMETRIC, SAVE_OFF_DIAG);
-        //         auto end = clock();
-        //         auto duration = MAX(1, (end - start));
-
-        //         // Output the time taken for each function
-        //         if (processRank == 0) {
-        //             // write to file or accumulate
-        //             // std::cout << algorithm.second << " Time: " << duration
-        //             <<
-        //             // std::endl;
-        //         }
-        //     }
-        // }
-
 #endif
 
     } else if (processRank == 0) {
