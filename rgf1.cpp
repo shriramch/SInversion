@@ -2,6 +2,16 @@
 #include "matrices_utils.hpp"
 #include <cassert>
 
+// Print the matrix
+void printMatrix(const float *matrix, int width, int height) {
+    for (int i = 0; i < height; ++i) {
+        for (int j = 0; j < width; ++j) {
+            std::cout << matrix[i * width + j] << " ";
+        }
+        std::cout << std::endl;
+    }
+}
+
 void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
                bool save_off_diag = true) {
     int blockSize, matrixSize;
@@ -13,6 +23,14 @@ void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
 
     // 1. Forward substitution (performed left to right)
     for (int i = 1; i < nblocks; ++i) {
+        float *AAi = new float[blockSize * blockSize](),
+              *AGi = new float[blockSize * blockSize]();
+        A.mmmBLAS(blockSize, &(A.lodiag[(i - 1) * blockSize * blockSize]),
+                  &(G.mdiag[(i - 1) * blockSize * blockSize]), AGi);
+        A.mmmBLAS(blockSize, AGi, &(A.updiag[(i - 1) * blockSize * blockSize]),
+                  AAi);
+        A.mmSub(blockSize, &(A.mdiag[i * blockSize * blockSize]), AAi, AGi);
+        A.invBLAS(blockSize, AGi, &(G.mdiag[i * blockSize * blockSize]));
         float *AAi = new float[blockSize * blockSize](),
               *AGi = new float[blockSize * blockSize]();
         A.mmmBLAS(blockSize, &(A.lodiag[(i - 1) * blockSize * blockSize]),

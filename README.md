@@ -57,6 +57,19 @@ Note:
 - Please do not use #include <bits/stdc++.h>
 - mpic++ -o test rgf2.cpp -lblas -llapack
 
+Problems:
+- on Davinci cannot run make as cblas.h is not there, and no sudo permission to install:
+  - [BLAS](#blas) :   sudo apt install libopenblas-base 
+                      sudo apt-get install libopenblas-dev (Ubuntu)
+  - [LAPACKe](#lapacke) : sudo apt-get install liblapacke-dev
+  - [MPI](#mpi) : sudo apt-get install openmpi-bin libopenmpi-dev
+
+TODO, after Andrea:
+  - ask Permission for SUDO or at least figure it out how to install the above
+  - test the following functions: (added blindly without testing)
+    - matrixInversionKernel
+    - matrixTransposeKernel
+  - test the rgf1sided_cuda  -> note that for now I did an 1v1 translation from the cpp implementation, more room for improvement
 
 Next steps:
 1. Mid-term Meeting - 24 November

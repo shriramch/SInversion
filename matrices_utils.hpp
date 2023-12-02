@@ -52,5 +52,6 @@ Matrix generateRandomMat(int matrixSize, bool isSymmetric = false,
 Matrix generateBandedDiagonalMatrix(int matrixSize, int matriceBandwidth,
                                     bool isSymmetric = false, int seed = 0);
 Matrix generateFixedMatrixOfSize8();
+Matrix generateFixedMatrixOfSize4();
 void transformToSymmetric(Matrix &A);
 void makeMatrixBanded(int matrixSize, int matriceBandwidth, float *matrix);
