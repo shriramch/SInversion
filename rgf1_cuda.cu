@@ -392,7 +392,7 @@ int main(int argc, const char *argv[]) {
             BLOCK_SIZE); // G has same blockSize as inputMatrix
         rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
-        // tempResult.printB();
+        tempResult.printB();
         std::cout << "\n########################################## \n";
 
         // inputMatrix.printB();
@@ -404,6 +404,6 @@ int main(int argc, const char *argv[]) {
 
         rgf1sided(inputMatrix, tempResult_cpp, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
-        // tempResult_cpp.printB();
+        tempResult_cpp.printB();
     }
 }
