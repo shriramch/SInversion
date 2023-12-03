@@ -50,4 +50,5 @@ compile_cuda:
 # $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
 # $(CUDA) -o test_cuda temp.cu  $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
 # $(CUDA) -o test_cuda cusolver_getrf_example.cu  $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
-	$(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp rgf1.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+# $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp rgf1.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+	$(CUDA) -o test_cuda rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)

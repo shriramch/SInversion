@@ -208,7 +208,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     // 1. Forward substitution (performed left to right)
 
     for (int i = 1; i < nblocks; ++i) {
-
         float *AAi, *AGi;
 
         cudaMalloc(&AAi, blockSizeBytes);

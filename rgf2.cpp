@@ -91,7 +91,6 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     // Initialisation of g - invert first block
     A.invBLAS(blockSize, A_diagblk_leftprocess, G_diagblk_leftprocess);
-    std::string filepath("/Users/evan/SInversion/output0.txt");
     // write_array(filepath, G_diagblk_leftprocess, blockSize);
 
     // Forward substitution
@@ -295,7 +294,7 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     A.invBLAS(blockSize,
               A_diagblk_rightprocess + (nblocks_2 - 1) * blockSize * blockSize,
               G_diagblk_rightprocess + nblocks_2 * blockSize * blockSize);
-    std::string filepath = "/Users/evan/SInversion/output1.txt";
+    // std::string filepath = "/Users/evan/SInversion/output1.txt";
     // write_array(filepath, G_diagblk_rightprocess +
     // nblocks_2*blockSize*blockSize, blockSize);
 
