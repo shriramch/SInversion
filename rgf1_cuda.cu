@@ -1,5 +1,5 @@
 #include "rgf1.hpp"
-
+#include "argparse.h"
 #include "rgf1_cuda.hpp"
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
@@ -27,8 +27,21 @@ void matrixMultiplyKernel(float *A, float *B, float *result, int n,
                           cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
-    cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, &alpha, A, n,
-                B, n, &beta, result, n);
+
+    cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n,n,n, &alpha, B, n, A, n, &beta, result, n);
+}
+
+__global__ void mulmul(float *A, float *B, float *result, int n) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+
+    if (row < n && col < n) {
+        float sum = 0.0;
+        for (int k = 0; k < n; k++) {
+            sum += A[row * n + k] * B[k * n + col];
+        }
+        result[row * n + col] = sum;
+    }
 }
 
 __global__ void matrixSubtractKernel(float *A, float *B, float *result, int n) {
@@ -191,14 +204,20 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
 
     int kernels_num_blocks = nblocks;
     int kernels_num_threads = nblocks;
-
-    // 1. Forward substitution (performed left to right)
-    float *AAi, *AGi;
     size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
-    cudaMalloc(&AAi, blockSizeBytes);
-    cudaMalloc(&AGi, blockSizeBytes);
+    // 1. Forward substitution (performed left to right)
 
     for (int i = 1; i < nblocks; ++i) {
+
+        float *AAi, *AGi;
+
+        cudaMalloc(&AAi, blockSizeBytes);
+        cudaMalloc(&AGi, blockSizeBytes);
+
+        cudaMemset(AAi, 0, blockSizeBytes);
+        cudaMemset(AGi, 0, blockSizeBytes);
+
+
         // TODO, check how to parallelize, since u need the previous G
         matrixMultiplyKernel(&(A_lodiag[(i - 1) * blockSize * blockSize]),
                              &(G_mdiag[(i - 1) * blockSize * blockSize]), AGi,
@@ -209,11 +228,12 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
             &(A_mdiag[i * blockSize * blockSize]), AAi, AGi, blockSize);
         matrixInversionKernel(AGi, &(G_mdiag[i * blockSize * blockSize]),
                               blockSize, cusolverHandle);
-    }
 
-    // Free temporary GPU memory
-    cudaFree(AAi);
-    cudaFree(AGi);
+        // Free temporary GPU memory
+        cudaFree(AAi);
+        cudaFree(AGi);
+
+    }
 
     // 2. Backward substitution
     float *Glf, *Glf1;
@@ -268,7 +288,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cudaFree(Glf);
     cudaFree(Glf1);
 
-    printFloatArrayFromCuda(G, matrix_array_size);
+    //printFloatArrayFromCuda(G, matrix_array_size);
 
     // Copy results back to host
     cudaMemcpy(input_A.getMat(), A, size, cudaMemcpyDeviceToHost);
@@ -295,36 +315,95 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cusolverDnDestroy(cusolverHandle);
 }
 
-// TEMP main to test stuff out
+typedef struct {
+    int matrixSize;
+    int blockSize;
+    int numRuns;
+    bool isSymmetric;
+    bool saveOffDiag;
+    char *inputPath;
+} Config;
+
+void InitOptions(Config *config) {
+    config->blockSize = 2;
+    config->matrixSize = 0;
+    config->numRuns = 10;
+    config->isSymmetric = false;
+    config->saveOffDiag = true;
+    config->inputPath = NULL;
+}
+
+int parse(Config *config, int argc, const char **argv) {
+    static const char *const usages[] = {
+        NULL,
+    };
+    struct argparse_option options[] = {
+        OPT_HELP(),
+        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL,
+                    0, 0),
+        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL, 0,
+                    0),
+        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL, 0,
+                    0),
+        OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
+                    NULL, 0, 0),
+        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag",
+                    NULL, 0, 0),
+        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0,
+                   0),
+        OPT_END(),
+    };
+
+    struct argparse argparse;
+    argparse_init(&argparse, options, usages, 0);
+    argparse_describe(&argparse, "DPHPC TEAM", NULL);
+    argc = argparse_parse(&argparse, argc, argv);
+
+    return 0;
+}
+
 int main(int argc, const char *argv[]) {
-    int MATRIX_SIZE = 4;
-    int BLOCK_SIZE = 2;
-    bool IS_SYMMETRIC = false;
-    bool SAVE_OFF_DIAG = true;
+    const char *bin_name = argv[0];
+    Config config;
+    InitOptions(&config);
+    parse(&config, argc, argv);
+    if (config.inputPath != NULL) {
+        // read matrix from file
+    } else if (config.matrixSize != 0) {
+        // generate matrix
+        int MATRIX_SIZE = config.matrixSize;
+        int BLOCK_SIZE = config.blockSize;
+        assert(MATRIX_SIZE % BLOCK_SIZE == 0);
+        int NUM_RUNS = config.numRuns;
+        bool IS_SYMMETRIC = config.isSymmetric;
+        bool SAVE_OFF_DIAG = config.saveOffDiag;
 
-    // Matrix inputMatrix = generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true,
-    // 0);
-    Matrix inputMatrix = generateFixedMatrixOfSize4();
-    inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
-    inputMatrix.printB();
-    Matrix tempResult(
-        MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-    tempResult.convertDenseToBlkTridiag(
-        BLOCK_SIZE); // G has same blockSize as inputMatrix
-    rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+        Matrix inputMatrix =
+                generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
 
-    tempResult.printB();
-    std::cout << "########################################## \n";
+        // Matrix inputMatrix = generateFixedMatrixOfSize4();
+        inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
-    inputMatrix.printB();
-    // Check against the already implemented RGF1 on C++
-    Matrix tempResult_cpp(
-        MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-    tempResult_cpp.convertDenseToBlkTridiag(
-        BLOCK_SIZE); // G has same blockSize as inputMatrix
+        // inputMatrix.printB();
+        Matrix tempResult(
+            MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult.convertDenseToBlkTridiag(
+            BLOCK_SIZE); // G has same blockSize as inputMatrix
+        rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
-    rgf1sided(inputMatrix, tempResult_cpp, false, true);
+        // tempResult.printB();
+        std::cout << "\n########################################## \n";
 
-    tempResult_cpp.printB();
+        // inputMatrix.printB();
+        // Check against the already implemented RGF1 on C++
+        Matrix tempResult_cpp(
+            MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult_cpp.convertDenseToBlkTridiag(
+            BLOCK_SIZE); // G has same blockSize as inputMatrix
+
+        rgf1sided(inputMatrix, tempResult_cpp, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+        // tempResult_cpp.printB();
+    }
 }

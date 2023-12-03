@@ -1,6 +1,7 @@
 a.out.dSYM
 test.dSYM
 test
+test_cuda
 a.out
 .vscode
 run.txt
