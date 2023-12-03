@@ -216,7 +216,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
         cudaMemset(AAi, 0, blockSizeBytes);
         cudaMemset(AGi, 0, blockSizeBytes);
 
-
         // TODO, check how to parallelize, since u need the previous G
         matrixMultiplyKernel(&(A_lodiag[(i - 1) * blockSize * blockSize]),
                              &(G_mdiag[(i - 1) * blockSize * blockSize]), AGi,

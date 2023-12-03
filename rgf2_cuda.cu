@@ -131,8 +131,9 @@ void matrixTransposeKernel(const float *A, float *result, int n,
     cudaFree(d_result);
 }
 
-void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat = false,
-                    bool save_off_diag = true) {
+void rgf2sided_cuda(Matrix &A, Matrix &G,
+                    bool sym_mat,
+                    bool save_off_diag) {
     int processRank, blockSize, matrixSize;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
@@ -175,9 +176,9 @@ void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat = false,
     }
 }
 
-void rgf2sided_upperprocess_cuda(Matrix &A, Matrix &G, int nblocks_2,
-                                 bool sym_mat = false,
-                                 bool save_off_diag = true) {
+void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2,
+                                 bool sym_mat,
+                                 bool save_off_diag) {
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
 
@@ -397,9 +398,9 @@ void rgf2sided_upperprocess_cuda(Matrix &A, Matrix &G, int nblocks_2,
     cusolverDnDestroy(cusolverHandle);
 }
 
-void rgf2sided_lowerprocess_cuda(Matrix &A, Matrix &G, int nblocks_2,
-                                 bool sym_mat = false,
-                                 bool save_off_diag = true) {
+void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2,
+                                 bool sym_mat,
+                                 bool save_off_diag) {
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
 
@@ -431,7 +432,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &A, Matrix &G, int nblocks_2,
     cudaMemcpy(A_mdiag, input_A.mdiag + nblocks_2 * blockSize *
                       blockSize, size_mdiag, cudaMemcpyHostToDevice);
     cudaMemcpy(G_mdiag, input_G.mdiag + nblocks_2 * blockSize *
-                      blockSize, size_mdiag, size_mdiag, cudaMemcpyHostToDevice);
+                      blockSize, size_mdiag, cudaMemcpyHostToDevice);
 
     float *A_updiag, *G_updiag;
     size_t size_updiag = (nblocks_2 - 1) * blockSize * blockSize * sizeof(float);
