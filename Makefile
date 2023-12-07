@@ -43,11 +43,14 @@ lsb2: compile_rgf2
 
 ###############################################################################################################
 # Open 4.1.6
-MPI_FLAGS_DAVINCI :=  -lopenblas -llapack -lmpi -I/home/jiang_andrea/openmpi/build/include -I/home/jiang_andrea/openmpi/build/lib -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib
+MPI_FLAGS_DAVINCI := -lopenblas -llapack -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib
 # -lmpi_cxx
 # -I/usr/include/x86_64-linux-gnu/mpich
 CUDA := nvcc
 CUDA_FLAGS_OTHERS := -lcublas -lcusolver
+# MPI_FLAGS_DAVINCI :=  -lopenblas -llapack -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib
+# MPI_FLAGS_DAVINCI += $(shell mpicc -show)
+MPI_CUDA_LINK_FLAGS := -I/usr/local/cuda-11.7/include -L/usr/local/cuda-11.7/lib64 -lcudart
 
 run_cuda: compile_cuda
 	./test_cuda -m 8 -b 2 -n 10 -s 0 -o 1
@@ -62,11 +65,11 @@ compile_cuda:
 run_cuda2: compile_cuda2
 	mpirun -np 2 ./test_cuda -m 8 -b 2 -n 10 -s 0 -o 1
 
-	
 compile_cuda2:
-	$(CUDA) -o test_cuda rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS)
-
-
-
-
-	
+# $(CUDA) -c rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS)
+# $(CUDA) -lm -lcudart $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI) -lmpi_cxx -lopen-rte -lopen-pal -ldl -lnsl -lutil -lm *.o -o test_cuda
+# rm *.o
+	$(MPI) -c rgf2_cuda.cpp rgf2.cpp matrices_utils.cpp $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS) $(CUDA_FLAGS_OTHERS)
+	$(CUDA) -c rgf2_cuda_kernels.cu $(CUDA_FLAGS_OTHERS)
+	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS) $(CUDA_FLAGS_OTHERS) -o test_cuda
+	rm *.o

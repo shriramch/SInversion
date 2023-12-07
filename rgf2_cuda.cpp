@@ -1,8 +1,27 @@
 #include "rgf2.hpp"
 #include "rgf2_cuda.hpp"
+#include <mpi.h>
+#include <cuda.h>
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
+
+extern void kernel_init(int n);
+
+// extern void matrixMultiplyKernel(float *A, float *B, float *result, int n,
+//                           cublasHandle_t cublasHandle);
+
+extern void matrixSubtracter(float *A, float *B, float *result, int n);
+
+extern void matrixAdder(float *A, float *B, float *result, int n);
+
+extern void matrixScaler(float *A, float k, float *result, int n);
+
+// extern void matrixInversionKernel(float *A, float *result, int n,
+//                            cusolverDnHandle_t cusolverHandle);
+
+// extern void matrixTransposeKernel(const float *A, float *result, int n,
+//                            cublasHandle_t cublasHandle);
 
 void printFloatArray(const float arr[], int size) {
     // std::cout << "Array of floats: \n";
@@ -30,26 +49,26 @@ void matrixMultiplyKernel(float *A, float *B, float *result, int n,
                 B, n, &beta, result, n);
 }
 
-__global__ void matrixSubtractKernel(float *A, float *B, float *result, int n) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index < n * n) {
-        result[index] = A[index] - B[index];
-    }
-}
+// __global__ void matrixSubtractKernel(float *A, float *B, float *result, int n) {
+//     int index = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (index < n * n) {
+//         result[index] = A[index] - B[index];
+//     }
+// }
 
-__global__ void matrixAddKernel(float *A, float *B, float *result, int n) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index < n * n) {
-        result[index] = A[index] + B[index];
-    }
-}
+// __global__ void matrixAddKernel(float *A, float *B, float *result, int n) {
+//     int index = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (index < n * n) {
+//         result[index] = A[index] + B[index];
+//     }
+// }
 
-__global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
-    int index = blockIdx.x * blockDim.x + threadIdx.x;
-    if (index < n * n) {
-        result[index] = A[index] * k;
-    }
-}
+// __global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
+//     int index = blockIdx.x * blockDim.x + threadIdx.x;
+//     if (index < n * n) {
+//         result[index] = A[index] * k;
+//     }
+// }
 
 // Function to create an identity matrix of size n x n
 float *createIdentityMatrix(int n) {
@@ -141,12 +160,14 @@ void rgf2sided_cuda(Matrix &A, Matrix &G,
     int nblocks = matrixSize / blockSize; // assume divisible
     int nblocks_2 = nblocks / 2;          // assume divisible
 
+    kernel_init(blockSize);
+
     if (processRank == 0) {
         //TODO make the CUDA implementation with rgf2sided_upperprocess_cuda
-        std::cout << "PRINTING Before processRank == 0 ########################################## \n";
+        // std::cout << "PRINTING Before processRank == 0 ########################################## \n";
 
         rgf2sided_upperprocess_cuda(A, G, nblocks_2, sym_mat, save_off_diag);
-        std::cout << "PRINTING After processRank == 0 ########################################## \n";
+        // std::cout << "PRINTING After processRank == 0 ########################################## \n";
 
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks_2)*blockSize * blockSize, MPI_FLOAT, 1, 0,
@@ -258,25 +279,31 @@ std::cout << "PRINTING After matrixInversionKernel processRank == 0 ############
                              blockSize, cublasHandle);
         matrixMultiplyKernel(temp_result_1, &(A_updiag[(i - 1) * blockSize * blockSize]),
                              temp_result_2, blockSize, cublasHandle);
-        matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+        matrixSubtracter(
             &(A_mdiag[i * blockSize * blockSize]), temp_result_2, temp_result_2, blockSize);
         matrixInversionKernel(temp_result_2, &(G_mdiag[i * blockSize * blockSize]),
                               blockSize, cusolverHandle);
     }
 std::cout << "PRINTING Before Sending 1 processRank == 0 ########################################## \n";
 
+    float *G_mdiag_host_send = new float[blockSize * blockSize]();
+    float *G_mdiag_host_recv = new float[blockSize * blockSize]();
+    cudaMemcpy(G_mdiag_host_send, G_mdiag +
+                            (nblocks_2 - 1) * blockSize * blockSize, blockSize * blockSize * sizeof(float), cudaMemcpyDeviceToHost);
+
     // Communicate the left connected block and receive the right connected
     // block
-    MPI_Send((const void *)(G_mdiag +
-                            (nblocks_2 - 1) * blockSize * blockSize),
+    MPI_Send((const void *)G_mdiag_host_send,
              blockSize * blockSize, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
 std::cout << "PRINTING After Sending 1 processRank == 0 ########################################## \n";
 
     MPI_Recv(
-        (void *)(G_mdiag + nblocks_2 * blockSize * blockSize),
+        (void *)G_mdiag_host_recv,
         blockSize * blockSize, MPI_FLOAT, 1, 0, MPI_COMM_WORLD,
         MPI_STATUS_IGNORE);
 std::cout << "PRINTING After Recive 1 processRank == 0 ########################################## \n";
+
+    cudaMemcpy(G_mdiag + nblocks_2 * blockSize * blockSize, G_mdiag_host_recv, blockSize * blockSize * sizeof(float), cudaMemcpyHostToDevice);
 
     // Connection from both sides of the full G
     matrixMultiplyKernel(A_lodiag + (nblocks_2 - 2) * blockSize * blockSize,
@@ -296,9 +323,9 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
                             temp_result_4,
                             blockSize, cublasHandle);
                             
-    matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+    matrixSubtracter(
             A_mdiag + (nblocks_2 - 1) * blockSize * blockSize, temp_result_2, temp_result_2, blockSize);
-    matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+    matrixSubtracter(
             temp_result_2, temp_result_4, temp_result_2, blockSize);
     matrixInversionKernel(temp_result_2, G_mdiag + (nblocks_2 - 1) * blockSize * blockSize,
                           blockSize, cusolverHandle);
@@ -313,7 +340,7 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
                             G_mdiag + (nblocks_2 - 1) * blockSize * blockSize,
                             temp_result_2,
                             blockSize, cublasHandle);
-    matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+    matrixScaler(
             temp_result_2, -1, G_lodiag + (nblocks_2 - 1) * blockSize * blockSize, blockSize);
     if (sym_mat) {
         // matrix transpose
@@ -331,7 +358,7 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
                             G_mdiag + (nblocks_2) * blockSize * blockSize,
                             temp_result_2,
                             blockSize, cublasHandle);
-        matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+        matrixScaler(
             temp_result_2, -1, G_updiag + (nblocks_2 - 1) * blockSize * blockSize, blockSize);
     
     }
@@ -350,7 +377,7 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
                              blockSize, cublasHandle);
 
         if (save_off_diag) {
-            matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+            matrixScaler(
                 G_lowerfactor, -1, &(G_lodiag[i * blockSize * blockSize]), blockSize);
 
             if (sym_mat) {
@@ -366,7 +393,7 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
                                 G_mdiag + (i + 1) * blockSize * blockSize,
                                 temp_result_2,
                                 blockSize, cublasHandle);
-                matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+                matrixScaler(
                     temp_result_2, -1, &(G_updiag[i * blockSize * blockSize]), blockSize);
             }
         }
@@ -379,7 +406,7 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
                             G_lowerfactor,
                             temp_result_2,
                             blockSize, cublasHandle);
-        matrixAddKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+        matrixAdder(
             g_ii, temp_result_2,
             &(G_mdiag[i * blockSize * blockSize]), blockSize);
 
@@ -413,6 +440,9 @@ std::cout << "PRINTING After Recive 1 processRank == 0 #########################
 void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2,
                                  bool sym_mat,
                                  bool save_off_diag) {
+
+                                    
+std::cout << "PRINTING Starting processRank == 1 ########################################## \n";
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
 
@@ -470,6 +500,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
     cudaMalloc(&temp_result_2, blockSizeBytes);
     cudaMalloc(&temp_result_3, blockSizeBytes);
     cudaMalloc(&temp_result_4, blockSizeBytes);
+std::cout << "PRINTING After MALLOCS processRank == 1 ########################################## \n";
 
     // Launch CUDA kernels for matrix operations
 
@@ -477,6 +508,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
     matrixInversionKernel(A_mdiag + (nblocks_2 - 1) * blockSize * blockSize, 
                         G_mdiag + nblocks_2 * blockSize * blockSize,
                         blockSize, cusolverHandle);
+
+std::cout << "PRINTING After matrixInversionKernel processRank == 1 ########################################## \n";
 
     int kernels_num_blocks = nblocks_2;
     int kernels_num_threads = nblocks_2;
@@ -491,7 +524,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                             A_lodiag + i * blockSize * blockSize,
                             temp_result_2,
                             blockSize, cublasHandle);
-        matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+        matrixSubtracter(
             &(A_mdiag[(i - 1) * blockSize * blockSize]), temp_result_2, temp_result_2, blockSize);
         matrixInversionKernel(temp_result_2, &(G_mdiag[i * blockSize * blockSize]),
                               blockSize, cusolverHandle);
@@ -501,9 +534,22 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
     // Communicate the right connected block and receive the right connected
     // block
 
-    MPI_Recv((void *)(G_mdiag), blockSize * blockSize, MPI_FLOAT,
+    float *G_mdiag_host_send = new float[blockSize * blockSize]();
+    float *G_mdiag_host_recv = new float[blockSize * blockSize]();
+    
+std::cout << "PRINTING random 1 processRank == 1 ########################################## \n";
+
+    MPI_Recv((void *)(G_mdiag_host_recv), blockSize * blockSize, MPI_FLOAT,
              0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
-    MPI_Send((const void *)(G_mdiag + 1 * blockSize * blockSize),
+    
+    cudaMemcpy(G_mdiag, G_mdiag_host_recv
+                            , blockSize * blockSize * sizeof(float), cudaMemcpyHostToDevice);
+                            
+std::cout << "PRINTING After receiving 1 processRank == 1 ########################################## \n";
+
+    cudaMemcpy(G_mdiag_host_send, G_mdiag + 1 * blockSize * blockSize, blockSize * blockSize * sizeof(float), cudaMemcpyDeviceToHost);
+    
+    MPI_Send((const void *)G_mdiag_host_send,
              blockSize * blockSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
 
     // Connection from both sides of the full G
@@ -524,9 +570,9 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                             temp_result_4,
                             blockSize, cublasHandle);
                             
-    matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+    matrixSubtracter(
             A_mdiag, temp_result_2, temp_result_2, blockSize);
-    matrixSubtractKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+    matrixSubtracter(
             temp_result_2, temp_result_4, temp_result_2, blockSize);
     matrixInversionKernel(temp_result_2, G_mdiag + (1) * blockSize * blockSize,
                           blockSize, cusolverHandle);
@@ -541,7 +587,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                             G_mdiag,
                             G_lodiag,
                             blockSize, cublasHandle);
-    matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+    matrixScaler(
             temp_result_2, -1, G_lodiag + (nblocks_2 - 1) * blockSize * blockSize, blockSize);
     if (sym_mat) {
         // matrix transpose
@@ -558,7 +604,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                             G_mdiag + (1) * blockSize * blockSize,
                             G_updiag,
                             blockSize, cublasHandle);
-        matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+        matrixScaler(
             temp_result_2, -1, G_updiag + (nblocks_2 - 1) * blockSize * blockSize, blockSize);
     
     }
@@ -579,7 +625,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                              blockSize, cublasHandle);
 
         if (save_off_diag) {
-            matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+            matrixScaler(
                 G_lowerfactor, -1, &(G_lodiag[i * blockSize * blockSize]), blockSize);
 
             if (sym_mat) {
@@ -595,7 +641,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                                 g_ii,
                                 temp_result_2,
                                 blockSize, cublasHandle);
-                matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+                matrixScaler(
                     temp_result_2, -1, &(G_updiag[i * blockSize * blockSize]), blockSize);
             }
         }
@@ -608,7 +654,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
                             g_ii,
                             temp_result_2,
                             blockSize, cublasHandle);
-        matrixAddKernel<<<kernels_num_blocks, kernels_num_threads>>>(
+        matrixAdder(
             g_ii, temp_result_2,
             &(G_mdiag[(i + 1) * blockSize * blockSize]), blockSize);
 

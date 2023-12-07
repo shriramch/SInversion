@@ -4,7 +4,6 @@
 #include <cstring>
 #include <fstream>
 #include <iostream>
-#include <mpi.h>
 
 class Matrix; // Forward declaration
 
