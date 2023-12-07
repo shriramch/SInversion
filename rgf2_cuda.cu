@@ -143,7 +143,10 @@ void rgf2sided_cuda(Matrix &A, Matrix &G,
 
     if (processRank == 0) {
         //TODO make the CUDA implementation with rgf2sided_upperprocess_cuda
+        std::cout << "PRINTING Before processRank == 0 ########################################## \n";
+
         rgf2sided_upperprocess_cuda(A, G, nblocks_2, sym_mat, save_off_diag);
+        std::cout << "PRINTING After processRank == 0 ########################################## \n";
 
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks_2)*blockSize * blockSize, MPI_FLOAT, 1, 0,
@@ -179,6 +182,8 @@ void rgf2sided_cuda(Matrix &A, Matrix &G,
 void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2,
                                  bool sym_mat,
                                  bool save_off_diag) {
+std::cout << "PRINTING Starting processRank == 0 ########################################## \n";
+
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
 
@@ -192,7 +197,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
     // Allocate memory for matrices on the GPU
     float *A, *G;
     size_t size = matrixSize * matrixSize * sizeof(float);
-    int matrix_array_size = matrixSize * matrixSize;
+    // int matrix_array_size = matrixSize * matrixSize;
     cudaMalloc(&A, size);
     cudaMalloc(&G, size);
 
@@ -234,11 +239,14 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
     cudaMalloc(&temp_result_2, blockSizeBytes);
     cudaMalloc(&temp_result_3, blockSizeBytes);
     cudaMalloc(&temp_result_4, blockSizeBytes);
+std::cout << "PRINTING After MALLOCS processRank == 0 ########################################## \n";
 
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
+
+std::cout << "PRINTING After matrixInversionKernel processRank == 0 ########################################## \n";
 
     int kernels_num_blocks = nblocks_2;
     int kernels_num_threads = nblocks_2;
@@ -255,16 +263,20 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
         matrixInversionKernel(temp_result_2, &(G_mdiag[i * blockSize * blockSize]),
                               blockSize, cusolverHandle);
     }
+std::cout << "PRINTING Before Sending 1 processRank == 0 ########################################## \n";
 
     // Communicate the left connected block and receive the right connected
     // block
     MPI_Send((const void *)(G_mdiag +
                             (nblocks_2 - 1) * blockSize * blockSize),
              blockSize * blockSize, MPI_FLOAT, 1, 0, MPI_COMM_WORLD);
+std::cout << "PRINTING After Sending 1 processRank == 0 ########################################## \n";
+
     MPI_Recv(
         (void *)(G_mdiag + nblocks_2 * blockSize * blockSize),
         blockSize * blockSize, MPI_FLOAT, 1, 0, MPI_COMM_WORLD,
         MPI_STATUS_IGNORE);
+std::cout << "PRINTING After Recive 1 processRank == 0 ########################################## \n";
 
     // Connection from both sides of the full G
     matrixMultiplyKernel(A_lodiag + (nblocks_2 - 2) * blockSize * blockSize,
@@ -414,7 +426,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G, int nblocks_2
     // Allocate memory for matrices on the GPU
     float *A, *G;
     size_t size = matrixSize * matrixSize * sizeof(float);
-    int matrix_array_size = matrixSize * matrixSize;
+    // int matrix_array_size = matrixSize * matrixSize;
     cudaMalloc(&A, size);
     cudaMalloc(&G, size);
 
@@ -652,6 +664,7 @@ int main(int argc, const char *argv[]) {
     if (processRank == 0) {
         inputMatrix.printB();
     }
+        std::cout << "PRINTING input matrix ########################################## \n";
 
     Matrix tempResult(
         MATRIX_SIZE); // zero initialization, same shape as inputMatrix
@@ -659,6 +672,7 @@ int main(int argc, const char *argv[]) {
         BLOCK_SIZE); // G has same blockSize as inputMatrix
     rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
+        std::cout << "PRINTING first part rgf2sided_cuda ########################################## \n";
     if (processRank == 0) {
         tempResult.printB();
         std::cout << "########################################## \n";

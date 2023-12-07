@@ -42,7 +42,10 @@ lsb2: compile_rgf2
 	mpirun -np 2 ./test -m 256 -b 16 -n 10 -s 0 -o 1 > run.txt
 
 ###############################################################################################################
-MPI_FLAGS_DAVINCI := -lmpi -I/usr/include/x86_64-linux-gnu/mpich -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib -lopenblas -llapack
+# Open 4.1.6
+MPI_FLAGS_DAVINCI :=  -lopenblas -llapack -lmpi -I/home/jiang_andrea/openmpi/build/include -I/home/jiang_andrea/openmpi/build/lib -I/home/bao_yifan/local/lapack/include -I/home/bao_yifan/local/openblas/include -L/home/bao_yifan/local/openblas/lib -L/home/bao_yifan/local/lapack/lib
+# -lmpi_cxx
+# -I/usr/include/x86_64-linux-gnu/mpich
 CUDA := nvcc
 CUDA_FLAGS_OTHERS := -lcublas -lcusolver
 
@@ -53,8 +56,17 @@ compile_cuda:
 # $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
 # $(CUDA) -o test_cuda temp.cu  $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
 # $(CUDA) -o test_cuda cusolver_getrf_example.cu  $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
-# $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp rgf1.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
-	$(CUDA) -o test_cuda rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI)
+# $(CUDA) -o test_cuda rgf1_cuda.cu matrices_utils.cpp rgf1.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS)
+	$(CUDA) -o test_cuda rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS)
 
-run_cuda2: compile_cuda
+run_cuda2: compile_cuda2
 	mpirun -np 2 ./test_cuda -m 8 -b 2 -n 10 -s 0 -o 1
+
+	
+compile_cuda2:
+	$(CUDA) -o test_cuda rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS)
+
+
+
+
+	

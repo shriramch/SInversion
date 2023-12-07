@@ -96,3 +96,16 @@ Next steps:
    - Improve Performance leverag Streaming RGF1Sided (CUDA) & RGF2Sided (MPI + CUDA)
    - Analyis & Conclusion - first draft of Report
   
+
+
+
+
+
+
+HOW TO USE CUDA+MPI:
+
+
+Steps to do inside the openmpi/openmpi-5.0.0 folder to install openmpi locally:
+  -  ./configure --with-cuda=/usr/local/cuda-11.7 --with-cuda-libdir=/usr/local/cuda-11.7/lib64/stubs        \        --enable-mca-dso=btl-smcuda,rcache-rgpusm,rcache-gpusm,accelerator-cuda --prefix=$HOME/openmpi/build --enable-mpi-cxx
+  - make -j8 all
+  - make install
