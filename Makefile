@@ -69,7 +69,7 @@ compile_cuda2:
 # $(CUDA) -c rgf2_cuda.cu matrices_utils.cpp rgf2.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(CUDA_FLAGS_OTHERS)
 # $(CUDA) -lm -lcudart $(CUDA_FLAGS_OTHERS) $(MPI_FLAGS_DAVINCI) -lmpi_cxx -lopen-rte -lopen-pal -ldl -lnsl -lutil -lm *.o -o test_cuda
 # rm *.o
-	$(MPI) -c rgf2_cuda.cpp rgf2.cpp matrices_utils.cpp $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS) $(CUDA_FLAGS_OTHERS)
+	$(MPI) -c rgf2_cuda.cpp rgf2.cpp matrices_utils.cpp argparse.cpp $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS) $(CUDA_FLAGS_OTHERS)
 	$(CUDA) -c rgf2_cuda_kernels.cu $(CUDA_FLAGS_OTHERS)
 	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS) $(CUDA_FLAGS_OTHERS) -o test_cuda
 	rm *.o

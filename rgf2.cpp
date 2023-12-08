@@ -1,5 +1,13 @@
 #include "rgf2.hpp"
 
+    void printFloatArray(const float arr[], int size) {
+    // std::cout << "Array of floats: \n";
+    for (int i = 0; i < size; ++i) {
+        std::cout << arr[i] << " ";
+    }
+    std::cout << std::endl;
+}
+
 // for debug only
 void write_array(std::string filepath, float *array, int size) {
     std::ofstream outputFile;
@@ -30,6 +38,8 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     if (processRank == 0) {
         rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
 
+        std::cout<<"C++ after upper process"<<std::endl;
+        G.printB();
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks_2)*blockSize * blockSize, MPI_FLOAT, 1, 0,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -113,6 +123,8 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         // blockSize, blockSize);
     }
 
+    printFloatArray(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
+    
     // Communicate the left connected block and receive the right connected
     // block
     MPI_Send((const void *)(G_diagblk_leftprocess +
@@ -122,6 +134,10 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         (void *)(G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize),
         blockSize * blockSize, MPI_FLOAT, 1, 0, MPI_COMM_WORLD,
         MPI_STATUS_IGNORE);
+
+    std::cout << "point : after rcv C++ \n";
+    printFloatArray(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
+
     // write_array(filepath, G_diagblk_leftprocess + nblocks_2 * blockSize *
     // blockSize, blockSize);
 
@@ -145,10 +161,16 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
             A_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
             temp_result_2, temp_result_2);
     A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2);
+
+            std::cout << "point : 000000 C++ \n";
+    printFloatArray(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
+
     A.invBLAS(blockSize, temp_result_2,
               G_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize);
     // write_array(filepath, G_diagblk_leftprocess +
     // (nblocks_2-1)*blockSize*blockSize, blockSize);
+        std::cout << "point : after INV C++ \n";
+    printFloatArray(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
 
     // Compute the shared off-diagonal upper block
     // write_array(filepath, G_diagblk_leftprocess +
@@ -240,7 +262,7 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     }
 
     memcpy(G.mdiag, G_diagblk_leftprocess,
-           nblocks_2 * blockSize * blockSize * sizeof(float));
+           (nblocks_2+1) * blockSize * blockSize * sizeof(float));
     memcpy(G.updiag, G_upperblk_leftprocess,
            nblocks_2 * blockSize * blockSize * sizeof(float));
     memcpy(G.lodiag, G_lowerblk_leftprocess,
