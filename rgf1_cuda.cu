@@ -1,5 +1,5 @@
-#include "rgf1.hpp"
 #include "argparse.h"
+#include "rgf1.hpp"
 #include "rgf1_cuda.hpp"
 #include <cublas_v2.h>
 #include <cuda_runtime.h>
@@ -28,7 +28,8 @@ void matrixMultiplyKernel(float *A, float *B, float *result, int n,
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n,n,n, &alpha, B, n, A, n, &beta, result, n);
+    cublasSgemm(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N, n, n, n, &alpha, B, n,
+                A, n, &beta, result, n);
 }
 
 __global__ void mulmul(float *A, float *B, float *result, int n) {
@@ -230,7 +231,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
         // Free temporary GPU memory
         cudaFree(AAi);
         cudaFree(AGi);
-
     }
 
     // 2. Backward substitution
@@ -286,7 +286,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cudaFree(Glf);
     cudaFree(Glf1);
 
-    //printFloatArrayFromCuda(G, matrix_array_size);
+    // printFloatArrayFromCuda(G, matrix_array_size);
 
     // Copy results back to host
     cudaMemcpy(input_A.getMat(), A, size, cudaMemcpyDeviceToHost);
@@ -376,9 +376,8 @@ int main(int argc, const char *argv[]) {
         bool IS_SYMMETRIC = config.isSymmetric;
         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
-
         Matrix inputMatrix =
-                generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
+            generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
 
         // Matrix inputMatrix = generateFixedMatrixOfSize4();
         inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
