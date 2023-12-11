@@ -1,10 +1,11 @@
 #include "argparse.h"
 #include "matrices_utils.hpp"
 #include "rgf1.hpp"
-// #include "rgf1_cuda.hpp"
+#include "rgf1_cuda.hpp"
+#include "rgf2_cuda.hpp"
 #include "rgf2.hpp"
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
 #include "liblsb.h"
 #endif
 
@@ -20,23 +21,36 @@
 typedef std::function<void(Matrix &, Matrix &, int, int, bool, bool)>
     AlgorithmFunction;
 
+#if defined ENABLE_LIBLSB2
 void rgf2sidedAlgorithm(Matrix &input, Matrix &result, int matrixSize,
                         int blockSize, bool is_symmetric = false,
                         bool save_off_diag = true) {
     rgf2sided(input, result, is_symmetric, save_off_diag);
 }
-
+#endif
+#if defined ENABLE_LIBLSB1
 void rgf1sidedAlgorithm(Matrix &input, Matrix &result, int matrixSize,
                         int blockSize, bool is_symmetric = false,
                         bool save_off_diag = true) {
     rgf1sided(input, result, is_symmetric, save_off_diag);
 }
+#endif
 
-// void rgf1sidedCUDAAlgorithm(Matrix &input, Matrix &result, int matrixSize,
-//                             int blockSize, bool is_symmetric = false,
-//                             bool save_off_diag = true) {
-//     rgf1sided_cuda(input, result, is_symmetric, save_off_diag);
-// }
+#if defined ENABLE_LIBLSB_C1
+void rgf1sidedCUDAAlgorithm(Matrix &input, Matrix &result, int matrixSize,
+                            int blockSize, bool is_symmetric = false,
+                            bool save_off_diag = true) {
+    rgf1sided_cuda(input, result, is_symmetric, save_off_diag);
+}
+#endif
+
+#if defined ENABLE_LIBLSB_C2
+void rgf2sidedCUDAAlgorithm(Matrix &input, Matrix &result, int matrixSize,
+                            int blockSize, bool is_symmetric = false,
+                            bool save_off_diag = true) {
+    rgf2sided_cuda(input, result, is_symmetric, save_off_diag);
+}
+#endif
 
 typedef struct {
     int matrixSize;
@@ -102,7 +116,7 @@ int main(int argc, const char *argv[]) {
     MPI_Init(&argc, (char ***)(&argv));
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Init("DPHPC Project", 0);
 #endif
 
@@ -126,6 +140,10 @@ int main(int argc, const char *argv[]) {
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"}
 #elif defined ENABLE_LIBLSB2
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
+#elif defined ENABLE_LIBLSB_C1
+            {rgf1sidedCUDAAlgorithm, "rgf1CUDA"}
+#elif defined ENABLE_LIBLSB_C2
+            {rgf2sidedCUDAAlgorithm, "rgf2CUDA"}
 #else
             {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"},
@@ -141,7 +159,7 @@ int main(int argc, const char *argv[]) {
         inputMatrix.invBLAS(MATRIX_SIZE, inputMatrix.getMat(), base_inv);
         Matrix baseResultMatrix(MATRIX_SIZE, base_inv);
         baseResultMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
-#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2
+#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2 && !defined ENABLE_LIBLSB_C1 && !defined ENABLE_LIBLSB_C2
         for (const auto &algorithm : algorithms) {
             Matrix tempResult(MATRIX_SIZE);
             tempResult.convertDenseToBlkTridiag(BLOCK_SIZE);
@@ -158,7 +176,7 @@ int main(int argc, const char *argv[]) {
         }
 #endif
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
         for (const auto &algorithm : algorithms) {
             for (int i = 0; i < NUM_RUNS; ++i) {
                 Matrix tempResult(MATRIX_SIZE);
@@ -185,7 +203,7 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Finalize();
 #endif
 
