@@ -2,10 +2,11 @@
 #include "matrices_utils.hpp"
 #include "rgf1.hpp"
 #include "rgf1_cuda.hpp"
-#include "rgf2_cuda.hpp"
 #include "rgf2.hpp"
+#include "rgf2_cuda.hpp"
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
+    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
 #include "liblsb.h"
 #endif
 
@@ -116,7 +117,8 @@ int main(int argc, const char *argv[]) {
     MPI_Init(&argc, (char ***)(&argv));
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
+    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Init("DPHPC_Project", 0);
 #endif
 
@@ -145,8 +147,8 @@ int main(int argc, const char *argv[]) {
 #elif defined ENABLE_LIBLSB_C2
             {rgf2sidedCUDAAlgorithm, "rgf2CUDA"}
 #else
-            {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
-            {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"},
+        // {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
+        // {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"},
         // {rgf1sidedCUDAAlgorithm, "rgf1sidedCUDAAlgorithm"},
 #endif
         };
@@ -155,7 +157,8 @@ int main(int argc, const char *argv[]) {
             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, true, 0);
         // inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
-#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2 && !defined ENABLE_LIBLSB_C1 && !defined ENABLE_LIBLSB_C2
+#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2 &&                      \
+    !defined ENABLE_LIBLSB_C1 && !defined ENABLE_LIBLSB_C2
         float *base_inv = new float[MATRIX_SIZE * MATRIX_SIZE]();
         inputMatrix.invBLAS(MATRIX_SIZE, inputMatrix.getMat(), base_inv);
         Matrix baseResultMatrix(MATRIX_SIZE, base_inv);
@@ -176,7 +179,8 @@ int main(int argc, const char *argv[]) {
         }
 #endif
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
+    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
         for (const auto &algorithm : algorithms) {
             for (int i = 0; i < NUM_RUNS; ++i) {
                 Matrix tempResult(MATRIX_SIZE);
@@ -203,7 +207,8 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
+#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
+    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Finalize();
 #endif
     std::cout << "reached end" << std::endl;

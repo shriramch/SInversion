@@ -106,7 +106,8 @@ void Matrix::convertDenseToBlkTridiag(const int blockSize) {
     //     for (int i = 0; i < blockSize; ++i) {
     //         for (int j = 0; j < blockSize; ++j) {
     //             mdiag[b * blockSize * blockSize + i * blockSize + j] =
-    //                 mat[(b * blockSize + i) * matrixSize + (b * blockSize + j)];
+    //                 mat[(b * blockSize + i) * matrixSize + (b * blockSize +
+    //                 j)];
     //         }
     //     }
     // }
@@ -279,7 +280,8 @@ void Matrix::matScale(int n, float *A, int k, float *result) {
 //         // Seed the random number generator if a seed is provided
 //         std::srand(seed);
 //     } else {
-//         // Seed the random number generator with the current time if no seed is
+//         // Seed the random number generator with the current time if no seed
+//         is
 //         // provided
 //         std::srand(static_cast<unsigned int>(std::time(nullptr)));
 //     }
@@ -288,7 +290,8 @@ void Matrix::matScale(int n, float *A, int k, float *result) {
 //         for (int j = 0; j < matrixSize; j++) {
 //             // Generate a random real-valued number between 0 and 1
 //             float random_number =
-//                 static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX);
+//                 static_cast<float>(std::rand()) /
+//                 static_cast<float>(RAND_MAX);
 
 //             // Store the number in the matrix
 //             matrix[i * matrixSize + j] = random_number;
@@ -326,7 +329,8 @@ void generateRandomMat(int matrixSize, bool isSymmetric, float *matrix) {
     // return mat;
 }
 
-Matrix generateBandedDiagonalMatrix(int matrixSize, int blockSize, bool isSymmetric, int seed) {
+Matrix generateBandedDiagonalMatrix(int matrixSize, int blockSize,
+                                    bool isSymmetric, int seed) {
     Matrix A(matrixSize);
     A.convertDenseToBlkTridiag(blockSize);
     int numBlocks = matrixSize / blockSize;
@@ -340,19 +344,23 @@ Matrix generateBandedDiagonalMatrix(int matrixSize, int blockSize, bool isSymmet
     }
 
     for (int i = 0; i < numBlocks; ++i) {
-        generateRandomMat(blockSize, isSymmetric, A.mdiag + i * blockSize * blockSize);
+        generateRandomMat(blockSize, isSymmetric,
+                          A.mdiag + i * blockSize * blockSize);
     }
 
     for (int i = 0; i < numBlocks - 1; ++i) {
-        generateRandomMat(blockSize, false, A.updiag + i * blockSize * blockSize);
+        generateRandomMat(blockSize, false,
+                          A.updiag + i * blockSize * blockSize);
         if (isSymmetric) {
             for (int k = 0; k < blockSize; ++k) {
                 for (int j = 0; j < blockSize; ++j) {
-                    A.lodiag[i * blockSize * blockSize + k * blockSize + j] = A.updiag[i * blockSize * blockSize + j * blockSize + k];
+                    A.lodiag[i * blockSize * blockSize + k * blockSize + j] =
+                        A.updiag[i * blockSize * blockSize + j * blockSize + k];
                 }
             }
         } else {
-            generateRandomMat(blockSize, false, A.lodiag + i * blockSize * blockSize);
+            generateRandomMat(blockSize, false,
+                              A.lodiag + i * blockSize * blockSize);
         }
     }
     return A;
