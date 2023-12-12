@@ -63,7 +63,7 @@ compile_rgf1:
 	$(MPI) -o test rgf1.cpp matrices_utils.cpp test.cpp argparse.cpp $(CPP1) $(MPI_FLAGS_DAVINCI) $(LIBLSB_library) 
 
 lsb1: compile_rgf1
-	mpirun -np 1 ./test -m 16384 -b 256 -n 10 -s 0 -o 1 > run.txt
+	mpirun -np 1 ./test -m 16 -b 4 -n 10 -s 0 -o 1 > run.txt
 
 compile_rgf2:
 	$(MPI) -o test rgf2.cpp matrices_utils.cpp test.cpp argparse.cpp $(CPP2) $(MPI_FLAGS_DAVINCI) $(LIBLSB_library)
@@ -78,7 +78,7 @@ compile_cuda_rgf1:
 	rm *.o
 
 lsbc1: compile_cuda_rgf1
-	mpirun -np 1 ./test -m 128 -b 16 -n 10 -s 0 -o 1 > run.txt
+	mpirun -np 1 ./test_cuda -m 64 -b 8 -n 10 -s 0 -o 1 > run.txt
 
 compile_cuda_rgf2:
 	$(MPI) -c $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) $(CUDA2) rgf2_cuda.cpp test.cpp matrices_utils.cpp argparse.cpp
@@ -87,5 +87,5 @@ compile_cuda_rgf2:
 	rm *.o
 
 lsbc2: compile_cuda_rgf2
-	mpirun -np 2 ./test -m 128 -b 16 -n 10 -s 0 -o 1 > run.txt
+	mpirun -np 2 ./test_cuda -m 128 -b 16 -n 10 -s 0 -o 1 > run.txt
 
