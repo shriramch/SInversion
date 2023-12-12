@@ -175,14 +175,14 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cusolverDnCreate(&cusolverHandle);
 
     // Allocate memory for matrices on the GPU
-    float *A, *G;
-    size_t size = matrixSize * matrixSize * sizeof(float);
-    cudaMalloc(&A, size);
-    cudaMalloc(&G, size);
+    // float *A, *G;
+    // size_t size = matrixSize * matrixSize * sizeof(float);
+    // cudaMalloc(&A, size);
+    // cudaMalloc(&G, size);
 
     // Copy matrices from host to device
-    cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
-    cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
 
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
@@ -381,8 +381,8 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    cudaFree(A);
-    cudaFree(G);
+    // cudaFree(A);
+    // cudaFree(G);
     cudaFree(A_mdiag);
     cudaFree(G_mdiag);
     cudaFree(A_updiag);
@@ -411,14 +411,14 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cusolverDnCreate(&cusolverHandle);
 
     // Allocate memory for matrices on the GPU
-    float *A, *G;
-    size_t size = matrixSize * matrixSize * sizeof(float);
+    // float *A, *G;
+    // size_t size = matrixSize * matrixSize * sizeof(float);
     // int matrix_array_size = matrixSize * matrixSize;
-    cudaMalloc(&A, size);
-    cudaMalloc(&G, size);
+    // cudaMalloc(&A, size);
+    // cudaMalloc(&G, size);
 
     // Copy matrices from host to device
-    cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
 
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
@@ -608,8 +608,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    cudaFree(A);
-    cudaFree(G);
+    // cudaFree(A);
+    // cudaFree(G);
     cudaFree(A_mdiag);
     cudaFree(G_mdiag);
     cudaFree(A_updiag);

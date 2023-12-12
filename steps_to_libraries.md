@@ -1,7 +1,7 @@
 ## Steps to run on davinci
 0. vim .bashrc, add the following into the bottom:
 ```shell
-export LD_LIBRARY_PATH=/home/bao_yifan/local/lapack/lib:/home/bao_yifan/local/openblas/lib:$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=/home/bao_yifan/local/lapack/lib:/home/bao_yifan/local/openblas/lib:/home/akash_sood/liblsb/lib/lib:$LD_LIBRARY_PATH
 export CPATH=/home/bao_yifan/local/openblas/include:/home/bao_yifan/local/lapack/include
 export OPENBLAS=/home/bao_yifan/local/openblas/lib/libopenblas.a
 export LAPACK=/home/bao_yifan/local/lapack/lib/liblapack.a

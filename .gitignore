@@ -5,6 +5,9 @@ test_cuda
 a.out
 .vscode
 run.txt
-output_logs
+output_logs*
 testpy
 create_plot.py
+.editorconfig
+output.log
+test.80s*

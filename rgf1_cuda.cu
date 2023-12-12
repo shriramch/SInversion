@@ -161,15 +161,15 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cusolverDnCreate(&cusolverHandle);
 
     // Allocate memory for matrices on the GPU
-    float *A, *G;
-    size_t size = matrixSize * matrixSize * sizeof(float);
-    int matrix_array_size = matrixSize * matrixSize;
-    cudaMalloc(&A, size);
-    cudaMalloc(&G, size);
+    // float *A, *G;
+    // size_t size = matrixSize * matrixSize * sizeof(float);
+    // int matrix_array_size = matrixSize * matrixSize;
+    // cudaMalloc(&A, size);
+    // cudaMalloc(&G, size);
 
     // Copy matrices from host to device
-    cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
-    cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
+    // cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
 
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
@@ -289,8 +289,8 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     // printFloatArrayFromCuda(G, matrix_array_size);
 
     // Copy results back to host
-    cudaMemcpy(input_A.getMat(), A, size, cudaMemcpyDeviceToHost);
-    cudaMemcpy(input_G.getMat(), G, size, cudaMemcpyDeviceToHost);
+    // cudaMemcpy(input_A.getMat(), A, size, cudaMemcpyDeviceToHost);
+    // cudaMemcpy(input_G.getMat(), G, size, cudaMemcpyDeviceToHost);
     cudaMemcpy(input_A.mdiag, A_mdiag, size_mdiag, cudaMemcpyDeviceToHost);
     cudaMemcpy(input_G.mdiag, G_mdiag, size_mdiag, cudaMemcpyDeviceToHost);
     cudaMemcpy(input_A.updiag, A_updiag, size_updiag, cudaMemcpyDeviceToHost);
@@ -299,8 +299,8 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cudaMemcpy(input_G.lodiag, G_lodiag, size_updiag, cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    cudaFree(A);
-    cudaFree(G);
+    // cudaFree(A);
+    // cudaFree(G);
     cudaFree(A_mdiag);
     cudaFree(G_mdiag);
     cudaFree(A_updiag);

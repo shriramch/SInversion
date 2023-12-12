@@ -152,14 +152,14 @@ int main(int argc, const char *argv[]) {
         };
 
         Matrix inputMatrix =
-            generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
-        inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
+            generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, true, 0);
+        // inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
+#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2 && !defined ENABLE_LIBLSB_C1 && !defined ENABLE_LIBLSB_C2
         float *base_inv = new float[MATRIX_SIZE * MATRIX_SIZE]();
         inputMatrix.invBLAS(MATRIX_SIZE, inputMatrix.getMat(), base_inv);
         Matrix baseResultMatrix(MATRIX_SIZE, base_inv);
         baseResultMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
-#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2 && !defined ENABLE_LIBLSB_C1 && !defined ENABLE_LIBLSB_C2
         for (const auto &algorithm : algorithms) {
             Matrix tempResult(MATRIX_SIZE);
             tempResult.convertDenseToBlkTridiag(BLOCK_SIZE);
@@ -206,6 +206,7 @@ int main(int argc, const char *argv[]) {
 #if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Finalize();
 #endif
+    std::cout << "reached end" << std::endl;
 
     MPI_Finalize();
     return 0;
