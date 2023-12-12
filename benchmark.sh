@@ -1,6 +1,7 @@
 #!/bin/bash
 
 current_time=$(date +"%Y%m%d_%H%M%S")
+echo "Start time: ${current_time}"
 OUTPUT_FOLDER="output_logs_${current_time}"
 # rm -rf $OUTPUT_FOLDER
 rm *.o
@@ -36,7 +37,7 @@ for codeset in "${CODESETS[@]}"; do
             elif [[ $codeset == "rgf2"* ]]; then
                 mpirun -np 2 ./test -m "$m_value" -b "$b_value" -n "$NUMRUNS" -s "$SYMMETRIC" -o 1 > run.txt
             fi
-            if [[ $codeset == "rgf1"* ]]; then
+            if [[ $codeset == "rgf1" ]]; then
                 mkdir "${OUTPUT_FOLDER}/${m_value}_${b_value}"
             fi
             for file in lsb.DPHPC_Project*; do
@@ -47,3 +48,5 @@ for codeset in "${CODESETS[@]}"; do
 done
 
 rm test
+current_time=$(date +"%Y%m%d_%H%M%S")
+echo "End time: ${current_time}"
