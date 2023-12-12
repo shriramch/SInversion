@@ -117,7 +117,7 @@ int main(int argc, const char *argv[]) {
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
 #if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 || defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
-    LSB_Init("DPHPC Project", 0);
+    LSB_Init("DPHPC_Project", 0);
 #endif
 
     Config config;

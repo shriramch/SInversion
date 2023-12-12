@@ -59,33 +59,33 @@ CPP2 = -DENABLE_LIBLSB2
 CUDA1 = -DENABLE_LIBLSB_C1
 CUDA2 = -DENABLE_LIBLSB_C2
 
-compile_rgf1:
+rgf1:
 	$(MPI) -o test rgf1.cpp matrices_utils.cpp test.cpp argparse.cpp $(CPP1) $(MPI_FLAGS_DAVINCI) $(LIBLSB_library) 
 
-lsb1: compile_rgf1
+lsb1: rgf1
 	mpirun -np 1 ./test -m 16 -b 4 -n 10 -s 0 -o 1 > run.txt
 
-compile_rgf2:
+rgf2:
 	$(MPI) -o test rgf2.cpp matrices_utils.cpp test.cpp argparse.cpp $(CPP2) $(MPI_FLAGS_DAVINCI) $(LIBLSB_library)
 
-lsb2: compile_rgf2
+lsb2: rgf2
 	mpirun -np 2 ./test -m 16384 -b 256 -n 10 -s 0 -o 1 > run.txt
 
-compile_cuda_rgf1:
+rgf1_cuda:
 	$(MPI) -c $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) $(CUDA1) test.cpp matrices_utils.cpp argparse.cpp
 	$(CUDA) -c $(CUDA_FLAGS) rgf1_cuda.cu
-	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) -o test_cuda
+	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) -o test
 	rm *.o
 
-lsbc1: compile_cuda_rgf1
-	mpirun -np 1 ./test_cuda -m 64 -b 8 -n 10 -s 0 -o 1 > run.txt
+lsbc1: rgf1_cuda
+	mpirun -np 1 ./test -m 64 -b 8 -n 10 -s 0 -o 1 > run.txt
 
-compile_cuda_rgf2:
+rgf2_cuda:
 	$(MPI) -c $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) $(CUDA2) rgf2_cuda.cpp test.cpp matrices_utils.cpp argparse.cpp
 	$(CUDA) -c $(CUDA_FLAGS) cuda_kernels.cu
-	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) -o test_cuda
+	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) -o test
 	rm *.o
 
-lsbc2: compile_cuda_rgf2
-	mpirun -np 2 ./test_cuda -m 128 -b 16 -n 10 -s 0 -o 1 > run.txt
+lsbc2: rgf2_cuda
+	mpirun -np 2 ./test -m 128 -b 16 -n 10 -s 0 -o 1 > run.txt
 
