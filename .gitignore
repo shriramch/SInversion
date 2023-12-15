@@ -11,3 +11,4 @@ create_plot.py
 .editorconfig
 output.log
 test.80s*
+lsb.*

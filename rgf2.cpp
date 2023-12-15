@@ -104,17 +104,17 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         A.mmmBLAS(blockSize,
                   A_lowerblk_leftprocess + (i - 1) * blockSize * blockSize,
                   G_diagblk_leftprocess + (i - 1) * blockSize * blockSize,
-                  temp_result_1);
+                  temp_result_1); // M
 
         A.mmmBLAS(blockSize, temp_result_1,
                   A_upperblk_leftprocess + (i - 1) * blockSize * blockSize,
-                  temp_result_2);
+                  temp_result_2); // M
 
         A.mmSub(blockSize, A_diagblk_leftprocess + i * blockSize * blockSize,
-                temp_result_2, temp_result_2);
+                temp_result_2, temp_result_2); // S
 
         A.invBLAS(blockSize, temp_result_2,
-                  G_diagblk_leftprocess + i * blockSize * blockSize);
+                  G_diagblk_leftprocess + i * blockSize * blockSize); // I
     }
 
     // Communicate the left connected block and receive the right connected
@@ -132,41 +132,41 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     A.mmmBLAS(blockSize,
               A_lowerblk_leftprocess + (nblocks_2 - 2) * blockSize * blockSize,
               G_diagblk_leftprocess + (nblocks_2 - 2) * blockSize * blockSize,
-              temp_result_1);
+              temp_result_1); // M
 
     A.mmmBLAS(blockSize, temp_result_1,
               A_upperblk_leftprocess + (nblocks_2 - 2) * blockSize * blockSize,
-              temp_result_2);
+              temp_result_2); // M
 
     A.mmmBLAS(blockSize,
               A_upperblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
               G_diagblk_leftprocess + (nblocks_2)*blockSize * blockSize,
-              temp_result_3);
+              temp_result_3); // M
 
     A.mmmBLAS(blockSize, temp_result_3,
               A_lowerblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
-              temp_result_4);
+              temp_result_4); // M
 
     A.mmSub(blockSize,
             A_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
-            temp_result_2, temp_result_2);
+            temp_result_2, temp_result_2); // S
 
-    A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2);
+    A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2); // S
 
     A.invBLAS(blockSize, temp_result_2,
-              G_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize);
+              G_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize); // I
 
     A.mmmBLAS(blockSize,
               G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize,
               A_lowerblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
-              temp_result_1);
+              temp_result_1); // M
 
     A.mmmBLAS(blockSize, temp_result_1,
               G_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
-              temp_result_2);
+              temp_result_2); // M
 
     A.mmSub(blockSize, zeros, temp_result_2,
-            G_lowerblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize);
+            G_lowerblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize); // S
 
     if (sym_mat) {
         // matrix transpose
@@ -179,15 +179,15 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
             blockSize,
             G_diagblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
             A_upperblk_leftprocess + (nblocks_2 - 1) * blockSize * blockSize,
-            temp_result_1);
+            temp_result_1); // M
 
         A.mmmBLAS(blockSize, temp_result_1,
                   G_diagblk_leftprocess + (nblocks_2)*blockSize * blockSize,
-                  temp_result_2);
+                  temp_result_2); // M
 
         A.mmSub(blockSize, zeros, temp_result_2,
                 G_upperblk_leftprocess +
-                    (nblocks_2 - 1) * blockSize * blockSize);
+                    (nblocks_2 - 1) * blockSize * blockSize); // S
     }
 
     // Backward substitution
@@ -197,13 +197,13 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
         A.mmmBLAS(
             blockSize, G_diagblk_leftprocess + (i + 1) * blockSize * blockSize,
-            A_lowerblk_leftprocess + i * blockSize * blockSize, temp_result_1);
+            A_lowerblk_leftprocess + i * blockSize * blockSize, temp_result_1); // M
 
-        A.mmmBLAS(blockSize, temp_result_1, g_ii, G_lowerfactor);
+        A.mmmBLAS(blockSize, temp_result_1, g_ii, G_lowerfactor); // M
 
         if (save_off_diag) {
             A.mmSub(blockSize, zeros, G_lowerfactor,
-                    G_lowerblk_leftprocess + i * blockSize * blockSize);
+                    G_lowerblk_leftprocess + i * blockSize * blockSize); // S
 
             if (sym_mat) {
                 // matrix transpose
@@ -214,26 +214,26 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
             } else {
                 A.mmmBLAS(blockSize, g_ii,
                           A_upperblk_leftprocess + i * blockSize * blockSize,
-                          temp_result_1);
+                          temp_result_1); // M
 
                 A.mmmBLAS(blockSize, temp_result_1,
                           G_diagblk_leftprocess +
                               (i + 1) * blockSize * blockSize,
-                          temp_result_2);
+                          temp_result_2); // M
 
                 A.mmSub(blockSize, zeros, temp_result_2,
-                        G_upperblk_leftprocess + i * blockSize * blockSize);
+                        G_upperblk_leftprocess + i * blockSize * blockSize); // S
             }
         }
 
         A.mmmBLAS(blockSize, g_ii,
                   A_upperblk_leftprocess + i * blockSize * blockSize,
-                  temp_result_1);
+                  temp_result_1); // M
 
-        A.mmmBLAS(blockSize, temp_result_1, G_lowerfactor, temp_result_2);
+        A.mmmBLAS(blockSize, temp_result_1, G_lowerfactor, temp_result_2); // M
 
         A.mmAdd(blockSize, g_ii, temp_result_2,
-                G_diagblk_leftprocess + i * blockSize * blockSize);
+                G_diagblk_leftprocess + i * blockSize * blockSize); // S
 
         delete[] G_lowerfactor;
     }
@@ -283,25 +283,25 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     A.invBLAS(blockSize,
               A_diagblk_rightprocess + (nblocks_2 - 1) * blockSize * blockSize,
-              G_diagblk_rightprocess + nblocks_2 * blockSize * blockSize);
+              G_diagblk_rightprocess + nblocks_2 * blockSize * blockSize); // I
 
     // Forward substitution
     for (int i = nblocks_2 - 1; i >= 1; i -= 1) {
         A.mmmBLAS(blockSize,
                   A_upperblk_rightprocess + i * blockSize * blockSize,
                   G_diagblk_rightprocess + (i + 1) * blockSize * blockSize,
-                  temp_result_1);
+                  temp_result_1); // M
 
         A.mmmBLAS(blockSize, temp_result_1,
                   A_lowerbk_rightprocess + i * blockSize * blockSize,
-                  temp_result_2);
+                  temp_result_2); // M
 
         A.mmSub(blockSize,
                 A_diagblk_rightprocess + (i - 1) * blockSize * blockSize,
-                temp_result_2, temp_result_2);
+                temp_result_2, temp_result_2); // S
 
         A.invBLAS(blockSize, temp_result_2,
-                  G_diagblk_rightprocess + i * blockSize * blockSize);
+                  G_diagblk_rightprocess + i * blockSize * blockSize); // I
     }
 
     // Communicate the right connected block and receive the right connected
@@ -315,31 +315,31 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     // Connection from both sides of the full G
     A.mmmBLAS(blockSize, A_lowerbk_rightprocess, G_diagblk_rightprocess,
-              temp_result_1);
+              temp_result_1); // M
 
-    A.mmmBLAS(blockSize, temp_result_1, A_upperblk_rightprocess, temp_result_2);
+    A.mmmBLAS(blockSize, temp_result_1, A_upperblk_rightprocess, temp_result_2); // M
 
     A.mmmBLAS(blockSize, A_upperblk_rightprocess + (1) * blockSize * blockSize,
               G_diagblk_rightprocess + (2) * blockSize * blockSize,
-              temp_result_3);
+              temp_result_3); // M
 
     A.mmmBLAS(blockSize, temp_result_3,
               A_lowerbk_rightprocess + (1) * blockSize * blockSize,
-              temp_result_4);
+              temp_result_4); // M
 
-    A.mmSub(blockSize, A_diagblk_rightprocess, temp_result_2, temp_result_2);
+    A.mmSub(blockSize, A_diagblk_rightprocess, temp_result_2, temp_result_2); // S
 
-    A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2);
+    A.mmSub(blockSize, temp_result_2, temp_result_4, temp_result_2); // S
 
     A.invBLAS(blockSize, temp_result_2,
-              G_diagblk_rightprocess + (1) * blockSize * blockSize);
+              G_diagblk_rightprocess + (1) * blockSize * blockSize); // I
 
     // Compute the shared off-diagonal upper block
     A.mmmBLAS(blockSize, G_diagblk_rightprocess + 1 * blockSize * blockSize,
-              A_lowerbk_rightprocess, temp_result_1);
+              A_lowerbk_rightprocess, temp_result_1); // M
 
     A.mmmBLAS(blockSize, temp_result_1, G_diagblk_rightprocess,
-              G_lowerblk_rightprocess);
+              G_lowerblk_rightprocess); // M
 
     if (sym_mat) {
         // matrix transpose
@@ -347,11 +347,11 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                         G_upperblk_rightprocess);
     } else {
         A.mmmBLAS(blockSize, G_diagblk_rightprocess, A_upperblk_rightprocess,
-                  temp_result_1);
+                  temp_result_1); // M
 
         A.mmmBLAS(blockSize, temp_result_1,
                   G_diagblk_rightprocess + 1 * blockSize * blockSize,
-                  G_upperblk_rightprocess);
+                  G_upperblk_rightprocess); // M
     }
 
     // Backward substitution
@@ -361,15 +361,15 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
         A.mmmBLAS(blockSize, g_ii,
                   A_lowerbk_rightprocess + i * blockSize * blockSize,
-                  temp_result_1);
+                  temp_result_1); // M
 
         A.mmmBLAS(blockSize, temp_result_1,
                   G_diagblk_rightprocess + i * blockSize * blockSize,
-                  G_lowerfactor);
+                  G_lowerfactor); // M
 
         if (save_off_diag) {
             A.mmSub(blockSize, zeros, G_lowerfactor,
-                    G_lowerblk_rightprocess + i * blockSize * blockSize);
+                    G_lowerblk_rightprocess + i * blockSize * blockSize); // S
 
             if (sym_mat) {
                 // matrix transpose
@@ -381,23 +381,23 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                 A.mmmBLAS(blockSize,
                           G_diagblk_rightprocess + i * blockSize * blockSize,
                           A_upperblk_rightprocess + i * blockSize * blockSize,
-                          temp_result_1);
+                          temp_result_1); // M
 
-                A.mmmBLAS(blockSize, temp_result_1, g_ii, temp_result_2);
+                A.mmmBLAS(blockSize, temp_result_1, g_ii, temp_result_2); // M
 
                 A.mmSub(blockSize, zeros, temp_result_2,
-                        G_upperblk_rightprocess + i * blockSize * blockSize);
+                        G_upperblk_rightprocess + i * blockSize * blockSize); // S
             }
         }
 
         A.mmmBLAS(blockSize, G_lowerfactor,
                   A_upperblk_rightprocess + i * blockSize * blockSize,
-                  temp_result_1);
+                  temp_result_1); // M
 
-        A.mmmBLAS(blockSize, temp_result_1, g_ii, temp_result_2);
+        A.mmmBLAS(blockSize, temp_result_1, g_ii, temp_result_2); // M
 
         A.mmAdd(blockSize, g_ii, temp_result_2,
-                G_diagblk_rightprocess + (i + 1) * blockSize * blockSize);
+                G_diagblk_rightprocess + (i + 1) * blockSize * blockSize); // S
     }
 
     memcpy(G.mdiag + nblocks_2 * blockSize * blockSize,

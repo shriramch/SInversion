@@ -87,5 +87,5 @@ rgf2_cuda:
 	rm *.o
 
 lsbc2: rgf2_cuda
-	mpirun -np 2 ./test -m 128 -b 16 -n 10 -s 0 -o 1 > run.txt
+	mpirun -np 2 ./test -m 32768 -b 32 -n 100 -s 0 -o 1 > run.txt
 
