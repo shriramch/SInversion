@@ -51,36 +51,36 @@ void matrixInversionKernel(float *A, float *result, int n,
     cudaMalloc(&d_info, sizeof(int));
 
     // Create a temporary matrix on the device
-    float *d_A, *d_identity, *d_work;
-    cudaMalloc(&d_A, n * n * sizeof(float));
+    float *d_identity, *d_work;
+    // cudaMalloc(&d_A, n * n * sizeof(float));
     cudaMalloc(&d_identity, n * n * sizeof(float));
     cudaMalloc(&d_work, n * n * sizeof(float));
     int *ipiv;
     cudaMalloc(&ipiv, n * sizeof(int));
 
     // Copy the input matrix A to the device
-    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
                cudaMemcpyHostToDevice);
 
     // Perform LU decomposition on the device
-    cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL,
+    cusolverDnSgetrf(cusolverHandle, n, n, A, n, d_work, NULL,
                      d_info); // Not using PIVOT for now
 
     // Solving AX = I  , where X is the result_matrix, and I is the
     // identity_matrix. Since AA^(-1) = I It saves on the result_matrix
     // (identity) the answer
-    cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL,
+    cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, A, n, NULL,
                      d_identity, n, d_info); // Not using PIVOT for now
 
     // printFloatArrayFromCuda(d_identity, n * n);
 
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
-               cudaMemcpyDeviceToHost);
+               cudaMemcpyDeviceToDevice);
 
     // Clean up
     free(identity_matrix);
-    cudaFree(d_A);
+    // cudaFree(d_A);
     cudaFree(d_work);
     cudaFree(ipiv);
     cudaFree(d_identity);
@@ -93,23 +93,23 @@ void matrixTransposeKernel(const float *A, float *result, int n,
     const float beta = 0.0f;
 
     // Allocate device memory for the input and output matrices
-    float *d_A, *d_result;
-    cudaMalloc((void **)&d_A, n * n * sizeof(float));
-    cudaMalloc((void **)&d_result, n * n * sizeof(float));
+    // float *d_A, *d_result;
+    // cudaMalloc((void **)&d_A, n * n * sizeof(float));
+    // cudaMalloc((void **)&d_result, n * n * sizeof(float));
 
     // Copy the input matrix A to device memory
-    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
 
     // Perform the transposition
-    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, d_A, n,
-                &beta, NULL, n, d_result, n);
+    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n,
+                &beta, NULL, n, result, n);
 
     // Copy the transposed matrix back to the host memory
-    cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Free device memory
-    cudaFree(d_A);
-    cudaFree(d_result);
+    // cudaFree(d_A);
+    // cudaFree(d_result);
 }
 
 void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
@@ -389,6 +389,10 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(G_updiag);
     cudaFree(A_lodiag);
     cudaFree(G_lodiag);
+    cudaFree(temp_result_1);
+    cudaFree(temp_result_2);
+    cudaFree(temp_result_3);
+    cudaFree(temp_result_4);
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
@@ -410,19 +414,9 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
 
-    // Allocate memory for matrices on the GPU
-    // float *A, *G;
-    // size_t size = matrixSize * matrixSize * sizeof(float);
-    // int matrix_array_size = matrixSize * matrixSize;
-    // cudaMalloc(&A, size);
-    // cudaMalloc(&G, size);
-
-    // Copy matrices from host to device
-    // cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
-
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
-    size_t size_mdiag_A = nblocks * blockSize * blockSize * sizeof(float);
+    size_t size_mdiag_A = (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
         (nblocks_2 + 1) * blockSize * blockSize * sizeof(float);
     cudaMalloc(&A_mdiag, size_mdiag_A);
@@ -434,7 +428,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     float *A_updiag, *G_updiag;
     size_t size_updiag_A =
-        (nblocks - 1) * blockSize * blockSize * sizeof(float);
+        (nblocks - nblocks_2 - 1) * blockSize * blockSize * sizeof(float);
     size_t size_updiag_G = nblocks_2 * blockSize * blockSize * sizeof(float);
     cudaMalloc(&A_updiag, size_updiag_A);
     cudaMalloc(&G_updiag, size_updiag_G);
@@ -616,117 +610,117 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(G_updiag);
     cudaFree(A_lodiag);
     cudaFree(G_lodiag);
+    cudaFree(temp_result_1);
+    cudaFree(temp_result_2);
+    cudaFree(temp_result_3);
+    cudaFree(temp_result_4);
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
     cusolverDnDestroy(cusolverHandle);
 }
 
-// typedef struct {
-//     int matrixSize;
-//     int blockSize;
-//     int numRuns;
-//     bool isSymmetric;
-//     bool saveOffDiag;
-//     char *inputPath;
-// } Config;
+typedef struct {
+    int matrixSize;
+    int blockSize;
+    int numRuns;
+    bool isSymmetric;
+    bool saveOffDiag;
+    char *inputPath;
+} Config;
 
-// void InitOptions(Config *config) {
-//     config->blockSize = 2;
-//     config->matrixSize = 0;
-//     config->numRuns = 10;
-//     config->isSymmetric = false;
-//     config->saveOffDiag = true;
-//     config->inputPath = NULL;
-// }
+void InitOptions(Config *config) {
+    config->blockSize = 2;
+    config->matrixSize = 0;
+    config->numRuns = 10;
+    config->isSymmetric = false;
+    config->saveOffDiag = true;
+    config->inputPath = NULL;
+}
 
-// int parse(Config *config, int argc, const char **argv) {
-//     static const char *const usages[] = {
-//         NULL,
-//     };
-//     struct argparse_option options[] = {
-//         OPT_HELP(),
-//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
-//         NULL,
-//                     0, 0),
-//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
-//         0,
-//                     0),
-//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
-//         0,
-//                     0),
-//         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
-//                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
-//         diag",
-//                     NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,
-//         0,
-//                    0),
-//         OPT_END(),
-//     };
+int parse(Config *config, int argc, const char **argv) {
+    static const char *const usages[] = {
+        NULL,
+    };
+    struct argparse_option options[] = {
+        OPT_HELP(),
+        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
+        NULL,
+                    0, 0),
+        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
+        0,
+                    0),
+        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
+        0,
+                    0),
+        OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
+                    NULL, 0, 0),
+        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
+        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,0,0),
+        OPT_END(),
+    };
 
-//     struct argparse argparse;
-//     argparse_init(&argparse, options, usages, 0);
-//     argparse_describe(&argparse, "DPHPC TEAM", NULL);
-//     argc = argparse_parse(&argparse, argc, argv);
+    struct argparse argparse;
+    argparse_init(&argparse, options, usages, 0);
+    argparse_describe(&argparse, "DPHPC TEAM", NULL);
+    argc = argparse_parse(&argparse, argc, argv);
 
-//     return 0;
-// }
+    return 0;
+}
 
-// // TEMP main to test stuff out
-// int main(int argc, const char *argv[]) {
-//     const char *bin_name = argv[0];
-//     Config config;
-//     InitOptions(&config);
-//     parse(&config, argc, argv);
+// TEMP main to test stuff out
+int main(int argc, const char *argv[]) {
+    const char *bin_name = argv[0];
+    Config config;
+    InitOptions(&config);
+    parse(&config, argc, argv);
 
-//     MPI_Init(&argc, (char ***)(&argv));
-//     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+    MPI_Init(&argc, (char ***)(&argv));
+    MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
 
-//     if (config.inputPath != NULL) {
-//         // read matrix from file
-//     } else if (config.matrixSize != 0) {
-//         // generate matrix
-//         int MATRIX_SIZE = config.matrixSize;
-//         int BLOCK_SIZE = config.blockSize;
-//         assert(MATRIX_SIZE % BLOCK_SIZE == 0);
-//         int NUM_RUNS = config.numRuns;
-//         bool IS_SYMMETRIC = config.isSymmetric;
-//         bool SAVE_OFF_DIAG = config.saveOffDiag;
+    if (config.inputPath != NULL) {
+        // read matrix from file
+    } else if (config.matrixSize != 0) {
+        // generate matrix
+        int MATRIX_SIZE = config.matrixSize;
+        int BLOCK_SIZE = config.blockSize;
+        assert(MATRIX_SIZE % BLOCK_SIZE == 0);
+        int NUM_RUNS = config.numRuns;
+        bool IS_SYMMETRIC = config.isSymmetric;
+        bool SAVE_OFF_DIAG = config.saveOffDiag;
 
-//         Matrix inputMatrix =
-//             generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
-//         // Matrix inputMatrix = generateFixedMatrixOfSize4();
-//         inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
+        Matrix inputMatrix =
+            generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
+        // Matrix inputMatrix = generateFixedMatrixOfSize4();
+        // inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
-//         // if (processRank == 0) {
-//         //     inputMatrix.printB();
-//         // }
+        // if (processRank == 0) {
+        //     inputMatrix.printB();
+        // }
 
-//         Matrix tempResult(
-//             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-//         tempResult.convertDenseToBlkTridiag(
-//             BLOCK_SIZE); // G has same blockSize as inputMatrix
-//         rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+        Matrix tempResult(
+            MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult.convertDenseToBlkTridiag(
+            BLOCK_SIZE); // G has same blockSize as inputMatrix
+        rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
-//         if (processRank == 0) {
-//             std::cout << "\n\nCUDA RESULT\n\n";
-//             tempResult.printB();
-//         }
+        if (processRank == 0) {
+            std::cout << "\n\nCUDA RESULT\n\n";
+            tempResult.printB();
+        }
 
-//         // Check against the already implemented RGF2 on C++
-//         Matrix tempResult_cpp(
-//             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-//         tempResult_cpp.convertDenseToBlkTridiag(
-//             BLOCK_SIZE); // G has same blockSize as inputMatrix
+        // Check against the already implemented RGF2 on C++
+        Matrix tempResult_cpp(
+            MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult_cpp.convertDenseToBlkTridiag(
+            BLOCK_SIZE); // G has same blockSize as inputMatrix
 
-//         rgf2sided(inputMatrix, tempResult_cpp, false, true);
+        rgf2sided(inputMatrix, tempResult_cpp, false, true);
 
-//         if (processRank == 0) {
-//             std::cout << "\n\nC++ RESULT \n\n";
-//             tempResult_cpp.printB();
-//         }
-//     }
-//     MPI_Finalize();
-// }
+        if (processRank == 0) {
+            std::cout << "\n\nC++ RESULT \n\n";
+            tempResult_cpp.printB();
+        }
+    }
+    MPI_Finalize();
+}
