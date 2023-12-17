@@ -41,3 +41,16 @@ void matrixScaler(float *A, float k, float *result, int n) {
     matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(A, k, result,
                                                                    n);
 }
+
+
+__global__ void matrixMultiplyKernel_old(float *A, float *B, float *result, int n) {
+    int row = blockIdx.y * blockDim.y + threadIdx.y;
+    int col = blockIdx.x * blockDim.x + threadIdx.x;
+    if (row < n && col < n) {
+        float sum = 0.0;
+        for (int k = 0; k < n; k++) {
+            sum += A[row * n + k] * B[k * n + col];
+        }
+        result[row * n + col] = sum;
+    }
+}

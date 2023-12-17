@@ -92,24 +92,9 @@ void matrixTransposeKernel(const float *A, float *result, int n,
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    // Allocate device memory for the input and output matrices
-    // float *d_A, *d_result;
-    // cudaMalloc((void **)&d_A, n * n * sizeof(float));
-    // cudaMalloc((void **)&d_result, n * n * sizeof(float));
-
-    // Copy the input matrix A to device memory
-    // cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
-
     // Perform the transposition
     cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n,
                 &beta, NULL, n, result, n);
-
-    // Copy the transposed matrix back to the host memory
-    // cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
-
-    // Free device memory
-    // cudaFree(d_A);
-    // cudaFree(d_result);
 }
 
 void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
@@ -173,17 +158,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
-
-    // Allocate memory for matrices on the GPU
-    // float *A, *G;
-    // size_t size = matrixSize * matrixSize * sizeof(float);
-    // cudaMalloc(&A, size);
-    // cudaMalloc(&G, size);
-
-    // Copy matrices from host to device
-    // cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
-    // cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
-
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
     size_t size_mdiag_A = nblocks * blockSize * blockSize * sizeof(float);
