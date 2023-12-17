@@ -286,7 +286,7 @@ def boxplot_performance():
             # Add labels and title
             plt.xlabel('matrix size')
             plt.ylabel('time (ms)')
-            plt.title(f"time for different matrix sizes with block size {block_size}")
+            plt.title(f"{algo_names[i]}: time for different matrix sizes with block size {block_size}")
             plt.savefig(f"./figures/boxplot_time_block{block_size}_{algo_names[i]}.png")
             plt.clf()
 
