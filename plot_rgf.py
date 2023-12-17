@@ -164,7 +164,6 @@ def lineplot_performance():
                     flops_list.append(flops_count)
                     cycles_list.append(cycle_count)
                     perf_list.append(flops_count / cycle_count)
-            
             sns.lineplot(x=matrix_sizes, y=perf_list, label=algo_names[i], marker=markers[i])
 
         # Add labels and title
@@ -230,6 +229,69 @@ def lineplot_algorithm():
         plt.savefig(f"./figures/lineplot_time_matrix_{algo_names[idx]}.png")
         plt.clf()
 
-lineplot_time()
+
+
+def boxplot_performance(): 
+    for block_size in block_sizes:
+        for i, file in enumerate(file_list): # different algorithm
+            data_y = []
+
+            flops_list=[]
+            cycles_list = []
+            perf_list = []
+
+            for matrix_size in matrix_sizes:
+                matrix_block = os.path.join(file_path, str(matrix_size) + "_" + str(block_size))
+                B = block_size
+                N = matrix_size
+                if isinstance(file, list): # 2 ranks rgf2 and rgf2_cuda
+                    data_path1 = os.path.join(matrix_block, file[0])
+                    data_path2 = os.path.join(matrix_block, file[1])
+                    try:
+                        df1 = pd.read_csv(data_path1, delim_whitespace=True, comment='#',usecols=['time'])
+                        df2 = pd.read_csv(data_path2, delim_whitespace=True, comment='#',usecols=['time'])
+                    # deal with 256 matrix size and 128 block size; not used now
+                    except Exception as e: 
+                        data_y.append(0)
+                        continue
+                    max_df = pd.DataFrame({
+                        'time': df1['time'].combine(df2['time'], lambda x1, x2: max(x1, x2)),
+                    })
+                    df = max_df
+                    df = remove_outliers(df)
+                    data_y.append(df['time'].values/1000)
+                    # median = np.median(df['time'].values)
+                    # flops_count, cycle_count = rgf2_flops_cycles(matrix_size, block_size, median)
+                    # data_y.append(median)
+                    # flops_list.append(flops_count)
+                    # cycles_list.append(cycle_count)
+                    # perf_list.append(flops_count / cycle_count)
+
+                # rgf1 and rgf1_cuda
+                else:
+                    data_path = os.path.join(matrix_block, file)
+                    df = pd.read_csv(data_path, delim_whitespace=True, comment='#',usecols=['time'])
+                    df = remove_outliers(df)
+                    data_y.append(df['time'].values/1000)
+                    # median = np.median(df['time'].values)
+                    # data_y.append(median)
+                    # flops_count, cycle_count = rgf1_flops_cycles(matrix_size, block_size, median)
+                    # flops_list.append(flops_count)
+                    # cycles_list.append(cycle_count)
+                    # perf_list.append(flops_count / cycle_count)
+            # sns.lineplot(x=matrix_sizes, y=perf_list, label=algo_names[i], marker=markers[i])
+            sns.boxplot(data=data_y)
+
+            plt.xticks(range(len(matrix_sizes)), matrix_sizes)
+            # Add labels and title
+            plt.xlabel('matrix size')
+            plt.ylabel('time (ms)')
+            plt.title(f"time for different matrix sizes with block size {block_size}")
+            plt.savefig(f"./figures/boxplot_time_block{block_size}_{algo_names[i]}.png")
+            plt.clf()
+
+
+# lineplot_time()
 # lineplot_performance()
+boxplot_performance()
 # lineplot_algorithm()
