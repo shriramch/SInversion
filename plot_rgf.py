@@ -8,12 +8,13 @@ import pandas as pd
 # input 
 # Use IQR method to remove outliers
 def remove_outliers(df):
-    Q1 = df.quantile(0.25)
-    Q3 = df.quantile(0.75)
-    IQR = Q3 - Q1
-    outliers_iqr = ((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).any(axis=1)
-    df_no_outliers_iqr = df[~outliers_iqr]
-    return df_no_outliers_iqr
+    # Q1 = df.quantile(0.25)
+    # Q3 = df.quantile(0.75)
+    # IQR = Q3 - Q1
+    # outliers_iqr = ((df < (Q1 - 1.5 * IQR)) | (df > (Q3 + 1.5 * IQR))).any(axis=1)
+    # df_no_outliers_iqr = df[~outliers_iqr]
+    # return df_no_outliers_iqr
+    return df.drop(range(5))
 
 # arguments 
 matrix_sizes = [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
@@ -151,7 +152,8 @@ def lineplot_performance():
                     data_y.append(median)
                     flops_list.append(flops_count)
                     cycles_list.append(cycle_count)
-                    perf_list.append(flops_count / cycle_count)
+                    # perf_list.append(flops_count / cycle_count)
+                    perf_list.append(flops_count / (median/1000000)) # micro second to second
 
                 # rgf1 and rgf1_cuda
                 else:
@@ -163,12 +165,13 @@ def lineplot_performance():
                     flops_count, cycle_count = rgf1_flops_cycles(matrix_size, block_size, median)
                     flops_list.append(flops_count)
                     cycles_list.append(cycle_count)
-                    perf_list.append(flops_count / cycle_count)
+                    # perf_list.append(flops_count / cycle_count)
+                    perf_list.append(flops_count / (median/1000000))
             sns.lineplot(x=matrix_sizes, y=perf_list, label=algo_names[i], marker=markers[i])
 
         # Add labels and title
         plt.xlabel('matrix size')
-        plt.ylabel('performance (flops/cycle)')
+        plt.ylabel('performance (flops/second)')
         plt.title(f"performance for different matrix sizes with block size {block_size}")
         # plt.yscale('log')
         plt.xscale('log')
@@ -260,38 +263,31 @@ def boxplot_performance():
                     df = max_df
                     df = remove_outliers(df)
                     data_y.append(df['time'].values/1000)
-                    # median = np.median(df['time'].values)
-                    # flops_count, cycle_count = rgf2_flops_cycles(matrix_size, block_size, median)
-                    # data_y.append(median)
-                    # flops_list.append(flops_count)
-                    # cycles_list.append(cycle_count)
-                    # perf_list.append(flops_count / cycle_count)
-
+                    flops_count, cycle_count = rgf2_flops_cycles(matrix_size, block_size, 0)
+                    perf_data = [flops_count / (t/1000000) for t in df['time'].values]
+                    perf_list.append(perf_data)
                 # rgf1 and rgf1_cuda
                 else:
                     data_path = os.path.join(matrix_block, file)
                     df = pd.read_csv(data_path, delim_whitespace=True, comment='#',usecols=['time'])
                     df = remove_outliers(df)
                     data_y.append(df['time'].values/1000)
-                    # median = np.median(df['time'].values)
-                    # data_y.append(median)
-                    # flops_count, cycle_count = rgf1_flops_cycles(matrix_size, block_size, median)
-                    # flops_list.append(flops_count)
-                    # cycles_list.append(cycle_count)
-                    # perf_list.append(flops_count / cycle_count)
+                    flops_count, cycle_count = rgf1_flops_cycles(matrix_size, block_size, 0)
+                    perf_data = [flops_count / (t/1000000) for t in df['time'].values]
+                    perf_list.append(perf_data)
             # sns.lineplot(x=matrix_sizes, y=perf_list, label=algo_names[i], marker=markers[i])
             sns.boxplot(data=data_y, showfliers=True)
 
             plt.xticks(range(len(matrix_sizes)), matrix_sizes)
             # Add labels and title
             plt.xlabel('matrix size')
-            plt.ylabel('time (ms)')
-            plt.title(f"{algo_names[i]}: time for different matrix sizes with block size {block_size}")
-            plt.savefig(f"./figures/boxplot_time_block{block_size}_{algo_names[i]}.png")
+            plt.ylabel('performance (flops/second)')
+            plt.title(f"{algo_names[i]}: performance for different matrix sizes with block size {block_size}")
+            plt.savefig(f"./figures/boxplot_performance_block{block_size}_{algo_names[i]}.png")
             plt.clf()
 
 
 lineplot_time()
-# lineplot_performance()
-# boxplot_performance()
+lineplot_performance()
+boxplot_performance()
 lineplot_algorithm()
