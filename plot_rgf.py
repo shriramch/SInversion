@@ -20,7 +20,7 @@ matrix_sizes = [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072]
 block_sizes = [16, 32, 64, 128]
 file_list = ["data_rgf1.r0", ["data_rgf2.r0","data_rgf2.r1"], "data_rgf1_cuda.r0", ["data_rgf2_cuda.r0","data_rgf2_cuda.r1"]]
 algo_names = ["rgf1", "rgf2", "rgf1_cuda", "rgf2_cuda"]
-file_path = "output_logs_20231216_231547"
+file_path = "output_logs_20231218_161745"
 markers = ['o','s','^','D']
 
 # flops and cycles of rgf1 and rgf1_cuda
@@ -90,7 +90,7 @@ def lineplot_time():
                     median = np.median(df['time'].values)
                     # print(f"In {data_path1}, matrix_size={matrix_size} block size={block_size}, median is {median}")
                     data_y.append(median/1000)
-                    ci = sns.utils.ci(sns.algorithms.bootstrap(df['time'].values / 1000, n_boot=1000))
+                    ci = sns.utils.ci(sns.algorithms.bootstrap(df['time'].values / 1000, func=np.median, n_boot=1000))
                     data_ci_low.append(ci[0])
                     data_ci_high.append(ci[1])
                 # rgf1 and rgf1_cuda
@@ -100,7 +100,7 @@ def lineplot_time():
                     df = remove_outliers(df)
                     median = np.median(df['time'].values)
                     data_y.append(median/1000)
-                    ci = sns.utils.ci(sns.algorithms.bootstrap(df['time'].values / 1000, n_boot=1000))
+                    ci = sns.utils.ci(sns.algorithms.bootstrap(df['time'].values / 1000, func=np.median, n_boot=1000))
                     data_ci_low.append(ci[0])
                     data_ci_high.append(ci[1])
             sns.lineplot(x=matrix_sizes, y=data_y, label=algo_names[i], marker=markers[i])
@@ -211,7 +211,7 @@ def lineplot_algorithm():
                 
                 df = remove_outliers(df)
                 median = np.median(df['time'].values / 1000) # microsecond to millisecond
-                ci = sns.utils.ci(sns.algorithms.bootstrap(df['time'].values / 1000, n_boot=1000))
+                ci = sns.utils.ci(sns.algorithms.bootstrap(df['time'].values / 1000, func=np.median, n_boot=1000))
                 data_y.append(median)
                 data_ci_low.append(ci[0])
                 data_ci_high.append(ci[1])
@@ -292,6 +292,6 @@ def boxplot_performance():
 
 
 lineplot_time()
-lineplot_performance()
-boxplot_performance()
+# lineplot_performance()
+# boxplot_performance()
 lineplot_algorithm()
