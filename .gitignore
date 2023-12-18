@@ -11,3 +11,6 @@ create_plot.py
 .editorconfig
 output.log
 test.80s*
+*.ipynb
+lsb.DPHPC_Project.r0
+lsb.DPHPC_Project.r1

@@ -280,7 +280,7 @@ def boxplot_performance():
                     # cycles_list.append(cycle_count)
                     # perf_list.append(flops_count / cycle_count)
             # sns.lineplot(x=matrix_sizes, y=perf_list, label=algo_names[i], marker=markers[i])
-            sns.boxplot(data=data_y)
+            sns.boxplot(data=data_y, showfliers=True)
 
             plt.xticks(range(len(matrix_sizes)), matrix_sizes)
             # Add labels and title
@@ -291,7 +291,7 @@ def boxplot_performance():
             plt.clf()
 
 
-# lineplot_time()
-# lineplot_performance()
+lineplot_time()
+lineplot_performance()
 boxplot_performance()
-# lineplot_algorithm()
+lineplot_algorithm()
