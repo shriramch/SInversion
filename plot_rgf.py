@@ -275,8 +275,7 @@ def boxplot_performance():
                     flops_count, cycle_count = rgf1_flops_cycles(matrix_size, block_size, 0)
                     perf_data = [flops_count / (t/1000000) for t in df['time'].values]
                     perf_list.append(perf_data)
-            # sns.lineplot(x=matrix_sizes, y=perf_list, label=algo_names[i], marker=markers[i])
-            sns.boxplot(data=data_y, showfliers=True)
+            sns.boxplot(data=perf_list, showfliers=True)
 
             plt.xticks(range(len(matrix_sizes)), matrix_sizes)
             # Add labels and title
@@ -287,7 +286,7 @@ def boxplot_performance():
             plt.clf()
 
 
-lineplot_time()
-lineplot_performance()
+# lineplot_time()
+# lineplot_performance()
 boxplot_performance()
-lineplot_algorithm()
+# lineplot_algorithm()
