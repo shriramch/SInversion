@@ -42,8 +42,8 @@ void matrixScaler(float *A, float k, float *result, int n) {
                                                                    n);
 }
 
-
-__global__ void matrixMultiplyKernel_old(float *A, float *B, float *result, int n) {
+__global__ void matrixMultiplyKernel_old(float *A, float *B, float *result,
+                                         int n) {
     int row = blockIdx.y * blockDim.y + threadIdx.y;
     int col = blockIdx.x * blockDim.x + threadIdx.x;
     if (row < n && col < n) {

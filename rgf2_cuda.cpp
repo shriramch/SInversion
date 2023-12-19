@@ -13,12 +13,11 @@ extern void matrixSubtracter(float *A, float *B, float *result, int n);
 extern void matrixAdder(float *A, float *B, float *result, int n);
 extern void matrixScaler(float *A, float k, float *result, int n);
 
-
-    float *identity_matrix;
-    int *d_info = nullptr;
-    float *d_A, *d_identity, *d_work;
-    int *ipiv;
-    float *d_result;
+float *identity_matrix;
+int *d_info = nullptr;
+float *d_A, *d_identity, *d_work;
+int *ipiv;
+float *d_result;
 
 void printFloatArrayFromCuda(const float arr[], int size) {
     float tempResult[size];
@@ -52,9 +51,9 @@ float *createIdentityMatrix(int n) {
 
 void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
-    
-                            // Copy the input matrix A to the device
-     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+    // Copy the input matrix A to the device
+    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
                cudaMemcpyHostToDevice);
 
@@ -72,7 +71,6 @@ void matrixInversionKernel(float *A, float *result, int n,
     // printFloatArrayFromCuda(d_identity, n * n);
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
                cudaMemcpyDeviceToHost);
-
 }
 
 void matrixTransposeKernel(const float *A, float *result, int n,
@@ -184,7 +182,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc(&temp_result_2, blockSizeBytes);
     cudaMalloc(&temp_result_3, blockSizeBytes);
     cudaMalloc(&temp_result_4, blockSizeBytes);
-    
+
     // Inverse and transpose kernel variables
     cudaMalloc(&d_info, sizeof(int));
     cudaMalloc(&d_A, blockSize * blockSize * sizeof(float));
@@ -199,7 +197,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
-
 
     // 1. Forward substitution (performed left to right)
     for (int i = 1; i < nblocks_2; ++i) {
@@ -399,7 +396,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
-    size_t size_mdiag_A = (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
+    size_t size_mdiag_A =
+        (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
         (nblocks_2 + 1) * blockSize * blockSize * sizeof(float);
     cudaMalloc(&A_mdiag, size_mdiag_A);
@@ -643,19 +641,18 @@ int parse(Config *config, int argc, const char **argv) {
     };
     struct argparse_option options[] = {
         OPT_HELP(),
-        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
-        NULL,
+        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL,
                     0, 0),
-        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
-        0,
+        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL, 0,
                     0),
-        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
-        0,
+        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL, 0,
                     0),
         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
                     NULL, 0, 0),
-        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,0,0),
+        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag",
+                    NULL, 0, 0),
+        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0,
+                   0),
         OPT_END(),
     };
 

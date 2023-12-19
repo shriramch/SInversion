@@ -12,5 +12,4 @@ create_plot.py
 output.log
 test.80s*
 *.ipynb
-lsb.DPHPC_Project.r0
-lsb.DPHPC_Project.r1
+lsb.DPHPC_Project.r*
