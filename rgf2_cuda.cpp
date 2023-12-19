@@ -13,6 +13,13 @@ extern void matrixSubtracter(float *A, float *B, float *result, int n);
 extern void matrixAdder(float *A, float *B, float *result, int n);
 extern void matrixScaler(float *A, float k, float *result, int n);
 
+
+    float *identity_matrix;
+    int *d_info = nullptr;
+    float *d_A, *d_identity, *d_work;
+    int *ipiv;
+    float *d_result;
+
 void printFloatArrayFromCuda(const float arr[], int size) {
     float tempResult[size];
     cudaMemcpy(tempResult, arr, sizeof(float) * size, cudaMemcpyDeviceToHost);
@@ -45,46 +52,27 @@ float *createIdentityMatrix(int n) {
 
 void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
-
-    float *identity_matrix = createIdentityMatrix(n);
-    int *d_info = nullptr; /* error info */
-    cudaMalloc(&d_info, sizeof(int));
-
-    // Create a temporary matrix on the device
-    float *d_identity, *d_work;
-    // cudaMalloc(&d_A, n * n * sizeof(float));
-    cudaMalloc(&d_identity, n * n * sizeof(float));
-    cudaMalloc(&d_work, n * n * sizeof(float));
-    int *ipiv;
-    cudaMalloc(&ipiv, n * sizeof(int));
-
-    // Copy the input matrix A to the device
-    // cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    
+                            // Copy the input matrix A to the device
+     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
                cudaMemcpyHostToDevice);
 
     // Perform LU decomposition on the device
-    cusolverDnSgetrf(cusolverHandle, n, n, A, n, d_work, NULL,
+    cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL,
                      d_info); // Not using PIVOT for now
 
     // Solving AX = I  , where X is the result_matrix, and I is the
     // identity_matrix. Since AA^(-1) = I It saves on the result_matrix
     // (identity) the answer
-    cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, A, n, NULL,
+    cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL,
                      d_identity, n, d_info); // Not using PIVOT for now
 
+    // std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n";
     // printFloatArrayFromCuda(d_identity, n * n);
-
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
-               cudaMemcpyDeviceToDevice);
+               cudaMemcpyDeviceToHost);
 
-    // Clean up
-    free(identity_matrix);
-    // cudaFree(d_A);
-    cudaFree(d_work);
-    cudaFree(ipiv);
-    cudaFree(d_identity);
-    cudaFree(d_info);
 }
 
 void matrixTransposeKernel(const float *A, float *result, int n,
@@ -151,6 +139,8 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
     int nblocks = matrixSize / blockSize;
+    int kernels_num_blocks = blockSize;
+    int kernels_num_threads = blockSize;
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
@@ -194,14 +184,22 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc(&temp_result_2, blockSizeBytes);
     cudaMalloc(&temp_result_3, blockSizeBytes);
     cudaMalloc(&temp_result_4, blockSizeBytes);
+    
+    // Inverse and transpose kernel variables
+    cudaMalloc(&d_info, sizeof(int));
+    cudaMalloc(&d_A, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_identity, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_work, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&ipiv, blockSize * sizeof(int));
+    cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
+
+    identity_matrix = createIdentityMatrix(blockSize);
 
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
 
-    int kernels_num_blocks = nblocks_2;
-    int kernels_num_threads = nblocks_2;
 
     // 1. Forward substitution (performed left to right)
     for (int i = 1; i < nblocks_2; ++i) {
@@ -368,6 +366,15 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(temp_result_3);
     cudaFree(temp_result_4);
 
+    // Clean up of inverse kernel
+    free(identity_matrix);
+    cudaFree(d_A);
+    cudaFree(d_work);
+    cudaFree(ipiv);
+    cudaFree(d_identity);
+    cudaFree(d_info);
+    cudaFree(d_result);
+
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
     cusolverDnDestroy(cusolverHandle);
@@ -380,6 +387,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
     int nblocks = matrixSize / blockSize;
+    int kernels_num_blocks = blockSize;
+    int kernels_num_threads = blockSize;
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
@@ -429,15 +438,22 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc(&temp_result_3, blockSizeBytes);
     cudaMalloc(&temp_result_4, blockSizeBytes);
 
+    // Inverse and transpose kernel variables
+    cudaMalloc(&d_info, sizeof(int));
+    cudaMalloc(&d_A, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_identity, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_work, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&ipiv, blockSize * sizeof(int));
+    cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
+
+    identity_matrix = createIdentityMatrix(blockSize);
+
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag + (nblocks_2 - 1) * blockSize * blockSize,
                           G_mdiag + nblocks_2 * blockSize * blockSize,
                           blockSize, cusolverHandle);
-
-    int kernels_num_blocks = nblocks_2;
-    int kernels_num_threads = nblocks_2;
 
     // 1. Forward substitution (performed left to right)
     for (int i = nblocks_2 - 1; i >= 1; i -= 1) {
@@ -589,60 +605,69 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(temp_result_3);
     cudaFree(temp_result_4);
 
+    // Clean up of inverse kernel
+    free(identity_matrix);
+    cudaFree(d_A);
+    cudaFree(d_work);
+    cudaFree(ipiv);
+    cudaFree(d_identity);
+    cudaFree(d_info);
+    cudaFree(d_result);
+
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
     cusolverDnDestroy(cusolverHandle);
 }
 
-// typedef struct {
-//     int matrixSize;
-//     int blockSize;
-//     int numRuns;
-//     bool isSymmetric;
-//     bool saveOffDiag;
-//     char *inputPath;
-// } Config;
+typedef struct {
+    int matrixSize;
+    int blockSize;
+    int numRuns;
+    bool isSymmetric;
+    bool saveOffDiag;
+    char *inputPath;
+} Config;
 
-// void InitOptions(Config *config) {
-//     config->blockSize = 2;
-//     config->matrixSize = 0;
-//     config->numRuns = 10;
-//     config->isSymmetric = false;
-//     config->saveOffDiag = true;
-//     config->inputPath = NULL;
-// }
+void InitOptions(Config *config) {
+    config->blockSize = 2;
+    config->matrixSize = 0;
+    config->numRuns = 10;
+    config->isSymmetric = false;
+    config->saveOffDiag = true;
+    config->inputPath = NULL;
+}
 
-// int parse(Config *config, int argc, const char **argv) {
-//     static const char *const usages[] = {
-//         NULL,
-//     };
-//     struct argparse_option options[] = {
-//         OPT_HELP(),
-//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
-//         NULL,
-//                     0, 0),
-//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
-//         0,
-//                     0),
-//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
-//         0,
-//                     0),
-//         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
-//                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,0,0),
-//         OPT_END(),
-//     };
+int parse(Config *config, int argc, const char **argv) {
+    static const char *const usages[] = {
+        NULL,
+    };
+    struct argparse_option options[] = {
+        OPT_HELP(),
+        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
+        NULL,
+                    0, 0),
+        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
+        0,
+                    0),
+        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
+        0,
+                    0),
+        OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
+                    NULL, 0, 0),
+        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
+        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,0,0),
+        OPT_END(),
+    };
 
-//     struct argparse argparse;
-//     argparse_init(&argparse, options, usages, 0);
-//     argparse_describe(&argparse, "DPHPC TEAM", NULL);
-//     argc = argparse_parse(&argparse, argc, argv);
+    struct argparse argparse;
+    argparse_init(&argparse, options, usages, 0);
+    argparse_describe(&argparse, "DPHPC TEAM", NULL);
+    argc = argparse_parse(&argparse, argc, argv);
 
-//     return 0;
-// }
+    return 0;
+}
 
-// TEMP main to test stuff out
+// // TEMP main to test stuff out
 // int main(int argc, const char *argv[]) {
 //     const char *bin_name = argv[0];
 //     Config config;

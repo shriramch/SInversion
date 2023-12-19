@@ -5,6 +5,14 @@
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 
+
+    float *identity_matrix;
+    int *d_info = nullptr;
+    float *d_A, *d_identity, *d_work;
+    int *ipiv;
+    float *d_result;
+    
+
 void printFloatArray(const float arr[], int size) {
     // std::cout << "Array of floats: \n";
     for (int i = 0; i < size; ++i) {
@@ -78,22 +86,21 @@ float *createIdentityMatrix(int n) {
     return identityMatrix;
 }
 
+// void createIdentityMatrix(float *A, int n) {
+//     // float *identityMatrix = (float *)malloc(n * n * sizeof(float));
+//     for (int i = 0; i < n; ++i) {
+//         for (int j = 0; j < n; ++j) {
+//             int index = i * n + j;
+//             A[index] = (i == j) ? 1 : 0;
+//         }
+//     }
+// }
+
 void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
-    float *identity_matrix = createIdentityMatrix(n);
-    int *d_info = nullptr; /* error info */
-    cudaMalloc(&d_info, sizeof(int));
-
-    // Create a temporary matrix on the device
-    float *d_A, *d_identity, *d_work;
-    cudaMalloc(&d_A, n * n * sizeof(float));
-    cudaMalloc(&d_identity, n * n * sizeof(float));
-    cudaMalloc(&d_work, n * n * sizeof(float));
-    int *ipiv;
-    cudaMalloc(&ipiv, n * sizeof(int));
-
-    // Copy the input matrix A to the device
-    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    
+                            // Copy the input matrix A to the device
+     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
     cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
                cudaMemcpyHostToDevice);
 
@@ -112,38 +119,42 @@ void matrixInversionKernel(float *A, float *result, int n,
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
                cudaMemcpyDeviceToHost);
 
-    // Clean up
-    free(identity_matrix);
-    cudaFree(d_A);
-    cudaFree(d_work);
-    cudaFree(ipiv);
-    cudaFree(d_identity);
-    cudaFree(d_info);
 }
+
+// void matrixTransposeKernel(const float *A, float *result, int n,
+//                            cublasHandle_t cublasHandle) {
+//     const float alpha = 1.0f;
+//     const float beta = 0.0f;
+
+//     // Copy the input matrix A to device memory
+//     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+
+//     // Perform the transposition
+//     cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, d_A, n,
+//                 &beta, NULL, n, d_result, n);
+
+//     // Copy the transposed matrix back to the host memory
+//     cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+
+//     // Free device memory
+// }
 
 void matrixTransposeKernel(const float *A, float *result, int n,
                            cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
     const float beta = 0.0f;
 
-    // Allocate device memory for the input and output matrices
-    float *d_A, *d_result;
-    cudaMalloc((void **)&d_A, n * n * sizeof(float));
-    cudaMalloc((void **)&d_result, n * n * sizeof(float));
-
     // Copy the input matrix A to device memory
-    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
 
     // Perform the transposition
-    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, d_A, n,
-                &beta, NULL, n, d_result, n);
+    cublasSgeam(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_N, n, n, &alpha, A, n,
+                &beta, NULL, n, result, n);
 
     // Copy the transposed matrix back to the host memory
-    cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
+    // cudaMemcpy(result, d_result, n * n * sizeof(float), cudaMemcpyDeviceToHost);
 
     // Free device memory
-    cudaFree(d_A);
-    cudaFree(d_result);
 }
 
 // CUDA-accelerated rgf1sided function
@@ -153,23 +164,16 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
     int nblocks = matrixSize / blockSize;
 
+    int kernels_num_blocks = nblocks;
+    int kernels_num_threads = nblocks;
+    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
+
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
     cusolverDnHandle_t cusolverHandle;
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
-
-    // Allocate memory for matrices on the GPU
-    // float *A, *G;
-    // size_t size = matrixSize * matrixSize * sizeof(float);
-    // int matrix_array_size = matrixSize * matrixSize;
-    // cudaMalloc(&A, size);
-    // cudaMalloc(&G, size);
-
-    // Copy matrices from host to device
-    // cudaMemcpy(A, input_A.getMat(), size, cudaMemcpyHostToDevice);
-    // cudaMemcpy(G, input_G.getMat(), size, cudaMemcpyHostToDevice);
 
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag;
@@ -197,27 +201,35 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     // Copy matrices from host to device
     cudaMemcpy(A_lodiag, input_A.lodiag, size_updiag, cudaMemcpyHostToDevice);
     cudaMemcpy(G_lodiag, input_G.lodiag, size_updiag, cudaMemcpyHostToDevice);
+    
+    float *AAi, *AGi;
+        cudaMalloc(&AAi, blockSizeBytes);
+        cudaMalloc(&AGi, blockSizeBytes);
+
+    // Inverse and transpose kernel variables
+    cudaMalloc(&d_info, sizeof(int));
+    cudaMalloc(&d_A, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_identity, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_work, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&ipiv, blockSize * sizeof(int));
+    cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
+
+    identity_matrix = createIdentityMatrix(blockSize);
+
+    // cudaMemcpy(d_identity, identity_matrix, blockSize * blockSize * sizeof(float), cudaMemcpyHostToDevice);
+
 
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
-
-    int kernels_num_blocks = nblocks;
-    int kernels_num_threads = nblocks;
-    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
     // 1. Forward substitution (performed left to right)
 
     for (int i = 1; i < nblocks; ++i) {
-        float *AAi, *AGi;
 
-        cudaMalloc(&AAi, blockSizeBytes);
-        cudaMalloc(&AGi, blockSizeBytes);
+        // cudaMemset(AAi, 0, blockSizeBytes);
+        // cudaMemset(AGi, 0, blockSizeBytes);
 
-        cudaMemset(AAi, 0, blockSizeBytes);
-        cudaMemset(AGi, 0, blockSizeBytes);
-
-        // TODO, check how to parallelize, since u need the previous G
         matrixMultiplyKernel(&(A_lodiag[(i - 1) * blockSize * blockSize]),
                              &(G_mdiag[(i - 1) * blockSize * blockSize]), AGi,
                              blockSize, cublasHandle);
@@ -229,14 +241,15 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
                               blockSize, cusolverHandle);
 
         // Free temporary GPU memory
-        cudaFree(AAi);
-        cudaFree(AGi);
     }
 
     // 2. Backward substitution
     float *Glf, *Glf1;
     cudaMalloc(&Glf, blockSizeBytes);
     cudaMalloc(&Glf1, blockSizeBytes);
+                float *Guf, *Guf1;
+                cudaMalloc(&Guf, blockSizeBytes);
+                cudaMalloc(&Guf1, blockSizeBytes);
 
     for (int i = nblocks - 2; i >= 0; --i) {
         matrixMultiplyKernel(&(G_mdiag[(i + 1) * blockSize * blockSize]),
@@ -254,9 +267,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
                                       &(G_updiag[i * blockSize * blockSize]),
                                       blockSize, cublasHandle);
             } else {
-                float *Guf, *Guf1;
-                cudaMalloc(&Guf, blockSizeBytes);
-                cudaMalloc(&Guf1, blockSizeBytes);
 
                 matrixMultiplyKernel(
                     &(A_updiag[i * blockSize * blockSize]),
@@ -267,9 +277,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
                 matrixScaleKernel<<<kernels_num_blocks, kernels_num_threads>>>(
                     Guf, -1, &(G_updiag[i * blockSize * blockSize]), blockSize);
 
-                // Free temporary GPU memory
-                cudaFree(Guf);
-                cudaFree(Guf1);
             }
         }
 
@@ -282,9 +289,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
             &(G_mdiag[i * blockSize * blockSize]), blockSize);
     }
 
-    // Free temporary GPU memory
-    cudaFree(Glf);
-    cudaFree(Glf1);
 
     // printFloatArrayFromCuda(G, matrix_array_size);
 
@@ -307,11 +311,77 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cudaFree(G_updiag);
     cudaFree(A_lodiag);
     cudaFree(G_lodiag);
+        cudaFree(AAi);
+        cudaFree(AGi);
+                // Free temporary GPU memory
+                cudaFree(Guf);
+                cudaFree(Guf1);
+    // Free temporary GPU memory
+    cudaFree(Glf);
+    cudaFree(Glf1);
+
+    
+    // Clean up of inverse kernel
+    free(identity_matrix);
+    cudaFree(d_A);
+    cudaFree(d_work);
+    cudaFree(ipiv);
+    cudaFree(d_identity);
+    cudaFree(d_info);
+    cudaFree(d_result);
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
     cusolverDnDestroy(cusolverHandle);
 }
+
+// typedef struct {
+//     int matrixSize;
+//     int blockSize;
+//     int numRuns;
+//     bool isSymmetric;
+//     bool saveOffDiag;
+//     char *inputPath;
+// } Config;
+
+// void InitOptions(Config *config) {
+//     config->blockSize = 2;
+//     config->matrixSize = 0;
+//     config->numRuns = 10;
+//     config->isSymmetric = false;
+//     config->saveOffDiag = true;
+//     config->inputPath = NULL;
+// }
+
+// int parse(Config *config, int argc, const char **argv) {
+//     static const char *const usages[] = {
+//         NULL,
+//     };
+//     struct argparse_option options[] = {
+//         OPT_HELP(),
+//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
+//         NULL,
+//                     0, 0),
+//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
+//         0,
+//                     0),
+//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
+//         0,
+//                     0),
+//         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
+//                     NULL, 0, 0),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
+//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,0,0),
+//         OPT_END(),
+//     };
+
+//     struct argparse argparse;
+//     argparse_init(&argparse, options, usages, 0);
+//     argparse_describe(&argparse, "DPHPC TEAM", NULL);
+//     argc = argparse_parse(&argparse, argc, argv);
+
+//     return 0;
+// }
 
 // int main(int argc, const char *argv[]) {
 //     const char *bin_name = argv[0];
@@ -333,7 +403,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
 //             generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
 
 //         // Matrix inputMatrix = generateFixedMatrixOfSize4();
-//         inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
+//         // inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
 
 //         // inputMatrix.printB();
 //         Matrix tempResult(
@@ -355,5 +425,6 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
 //         rgf1sided(inputMatrix, tempResult_cpp, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
 //         tempResult_cpp.printB();
+
 //     }
 // }
