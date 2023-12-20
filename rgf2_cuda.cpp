@@ -19,15 +19,15 @@ float *d_A, *d_identity, *d_work;
 int *ipiv;
 float *d_result;
 
-void printG(const float arr[], int size) {
-    // size /= sizeof(float);
-    float tempResult[size];
-    cudaMemcpy(tempResult, arr, sizeof(float) * size, cudaMemcpyDeviceToHost);
-    for (int i = 0; i < size; ++i) {
-        std::cout << tempResult[i] << " ";
-    }
-    std::cout << std::endl;
-}
+// void printG(const float arr[], int size) {
+//     // size /= sizeof(float);
+//     float tempResult[size];
+//     cudaMemcpy(tempResult, arr, sizeof(float) * size,
+//     cudaMemcpyDeviceToHost); for (int i = 0; i < size; ++i) {
+//         std::cout << tempResult[i] << " ";
+//     }
+//     std::cout << std::endl;
+// }
 
 void matrixMultiplyKernel(float *A, float *B, float *result, int n,
                           cublasHandle_t cublasHandle) {
@@ -96,10 +96,6 @@ void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
 
     if (processRank == 0) {
         rgf2sided_upperprocess_cuda(A, G, nblocks_2, sym_mat, save_off_diag);
-
-        // printG(G.mdiag, nblocks * blockSize * blockSize);
-        // printG(G.lodiag, nblocks * blockSize * blockSize);
-        // printG(G.updiag, nblocks * blockSize * blockSize);
 
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks_2)*blockSize * blockSize, MPI_FLOAT, 1, 0,
@@ -197,17 +193,13 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
 
     identity_matrix = createIdentityMatrix(blockSize);
-        float *G_lowerfactor;
-        cudaMalloc(&G_lowerfactor, blockSizeBytes);
+    float *G_lowerfactor;
+    cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
-
-    // printG(G_mdiag, blockSize * blockSize);
-        
-        // printG(G_mdiag, nblocks_2 * blockSize * blockSize);
 
     // 1. Forward substitution (performed left to right)
     for (int i = 1; i < nblocks_2; ++i) {
@@ -225,12 +217,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
         matrixInversionKernel(temp_result_2,
                               &(G_mdiag[i * blockSize * blockSize]), blockSize,
                               cusolverHandle);
-        
-        // printG(G_mdiag, nblocks_2 * blockSize * blockSize);
     }
-
-    
-    // printG(G_mdiag, nblocks_2 * blockSize * blockSize);
 
     float *G_mdiag_host_send = new float[blockSize * blockSize]();
     float *G_mdiag_host_recv = new float[blockSize * blockSize]();
@@ -248,8 +235,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cudaMemcpy(G_mdiag + nblocks_2 * blockSize * blockSize, G_mdiag_host_recv,
                blockSize * blockSize * sizeof(float), cudaMemcpyHostToDevice);
-
-    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
 
     // Connection from both sides of the full G
     matrixMultiplyKernel(A_lodiag + (nblocks_2 - 2) * blockSize * blockSize,
@@ -309,11 +294,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                      G_updiag + (nblocks_2 - 1) * blockSize * blockSize,
                      blockSize);
     }
-    
-    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
-    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
-    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
-
 
     // 2. Backward substitution
     for (int i = nblocks_2 - 2; i >= 0; --i) {
@@ -354,13 +334,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
 
         matrixAdder(g_ii, temp_result_2, &(G_mdiag[i * blockSize * blockSize]),
                     blockSize);
-
     }
-
-    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
-    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
-    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
-
 
     // Copy results back to host
     cudaMemcpy(input_G.mdiag, G_mdiag,
@@ -374,8 +348,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    // cudaFree(A);
-    // cudaFree(G);
     cudaFree(A_mdiag);
     cudaFree(G_mdiag);
     cudaFree(A_updiag);
@@ -386,8 +358,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(temp_result_2);
     cudaFree(temp_result_3);
     cudaFree(temp_result_4);
-        // Free temporary GPU memory
-        cudaFree(G_lowerfactor);
+    cudaFree(G_lowerfactor);
 
     // Clean up of inverse kernel
     free(identity_matrix);
@@ -472,9 +443,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     identity_matrix = createIdentityMatrix(blockSize);
 
-    
-        float *G_lowerfactor;
-        cudaMalloc(&G_lowerfactor, blockSizeBytes);
+    float *G_lowerfactor;
+    cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
     // Launch CUDA kernels for matrix operations
 
@@ -489,25 +459,17 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                              G_mdiag + (i + 1) * blockSize * blockSize,
                              temp_result_1, blockSize, cublasHandle);
 
-        // printG(A_updiag + i * blockSize * blockSize, blockSize * blockSize);
-        // printG(temp_result_1, blockSize * blockSize);
-
         matrixMultiplyKernel(temp_result_1,
                              A_lodiag + i * blockSize * blockSize,
                              temp_result_2, blockSize, cublasHandle);
 
-        // printG(temp_result_2, blockSize * blockSize);
         matrixSubtracter(&(A_mdiag[(i - 1) * blockSize * blockSize]),
                          temp_result_2, temp_result_2, blockSize);
 
-        // printG(temp_result_2, blockSize * blockSize);
         matrixInversionKernel(temp_result_2,
                               &(G_mdiag[i * blockSize * blockSize]), blockSize,
                               cusolverHandle);
     }
-
-    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
-
 
     // Communicate the right connected block and receive the right connected
     // block
@@ -526,9 +488,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     MPI_Send((const void *)G_mdiag_host_send, blockSize * blockSize, MPI_FLOAT,
              0, 0, MPI_COMM_WORLD);
-
-    //  printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
-
 
     // Connection from both sides of the full G
     matrixMultiplyKernel(A_lodiag, G_mdiag, temp_result_1, blockSize,
@@ -571,11 +530,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                              blockSize, cublasHandle);
     }
 
-    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
-    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
-    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
-
-
     // 2. Backward substitution
     for (int i = 1; i < nblocks_2; ++i) {
         float *g_ii = G_mdiag + (i + 1) * blockSize * blockSize;
@@ -616,13 +570,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
         matrixAdder(g_ii, temp_result_2,
                     &(G_mdiag[(i + 1) * blockSize * blockSize]), blockSize);
-
     }
-
-    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
-    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
-    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
-
 
     // Copy results back to host
     cudaMemcpy(input_G.mdiag + nblocks_2 * blockSize * blockSize,
@@ -637,8 +585,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    // cudaFree(A);
-    // cudaFree(G);
     cudaFree(A_mdiag);
     cudaFree(G_mdiag);
     cudaFree(A_updiag);
@@ -649,6 +595,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(temp_result_2);
     cudaFree(temp_result_3);
     cudaFree(temp_result_4);
+    cudaFree(G_lowerfactor);
 
     // Clean up of inverse kernel
     free(identity_matrix);
@@ -658,8 +605,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(d_identity);
     cudaFree(d_info);
     cudaFree(d_result);
-        // Free temporary GPU memory
-        cudaFree(G_lowerfactor);
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
@@ -690,17 +635,22 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //     };
 //     struct argparse_option options[] = {
 //         OPT_HELP(),
-//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL,
+//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
+//         NULL,
 //                     0, 0),
-//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL, 0,
+//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
+//         0,
 //                     0),
-//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL, 0,
+//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
+//         0,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag",
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
+//         diag",
 //                     NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0,
+//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,
+//         0,
 //                    0),
 //         OPT_END(),
 //     };
