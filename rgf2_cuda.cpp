@@ -19,7 +19,8 @@ float *d_A, *d_identity, *d_work;
 int *ipiv;
 float *d_result;
 
-void printFloatArrayFromCuda(const float arr[], int size) {
+void printG(const float arr[], int size) {
+    // size /= sizeof(float);
     float tempResult[size];
     cudaMemcpy(tempResult, arr, sizeof(float) * size, cudaMemcpyDeviceToHost);
     for (int i = 0; i < size; ++i) {
@@ -95,6 +96,10 @@ void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
 
     if (processRank == 0) {
         rgf2sided_upperprocess_cuda(A, G, nblocks_2, sym_mat, save_off_diag);
+
+        // printG(G.mdiag, nblocks * blockSize * blockSize);
+        // printG(G.lodiag, nblocks * blockSize * blockSize);
+        // printG(G.updiag, nblocks * blockSize * blockSize);
 
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks_2)*blockSize * blockSize, MPI_FLOAT, 1, 0,
@@ -192,11 +197,17 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
 
     identity_matrix = createIdentityMatrix(blockSize);
+        float *G_lowerfactor;
+        cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
+
+    // printG(G_mdiag, blockSize * blockSize);
+        
+        // printG(G_mdiag, nblocks_2 * blockSize * blockSize);
 
     // 1. Forward substitution (performed left to right)
     for (int i = 1; i < nblocks_2; ++i) {
@@ -214,7 +225,12 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
         matrixInversionKernel(temp_result_2,
                               &(G_mdiag[i * blockSize * blockSize]), blockSize,
                               cusolverHandle);
+        
+        // printG(G_mdiag, nblocks_2 * blockSize * blockSize);
     }
+
+    
+    // printG(G_mdiag, nblocks_2 * blockSize * blockSize);
 
     float *G_mdiag_host_send = new float[blockSize * blockSize]();
     float *G_mdiag_host_recv = new float[blockSize * blockSize]();
@@ -232,6 +248,8 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cudaMemcpy(G_mdiag + nblocks_2 * blockSize * blockSize, G_mdiag_host_recv,
                blockSize * blockSize * sizeof(float), cudaMemcpyHostToDevice);
+
+    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
 
     // Connection from both sides of the full G
     matrixMultiplyKernel(A_lodiag + (nblocks_2 - 2) * blockSize * blockSize,
@@ -291,12 +309,15 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                      G_updiag + (nblocks_2 - 1) * blockSize * blockSize,
                      blockSize);
     }
+    
+    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
+    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
+    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
+
 
     // 2. Backward substitution
     for (int i = nblocks_2 - 2; i >= 0; --i) {
         float *g_ii = G_mdiag + i * blockSize * blockSize;
-        float *G_lowerfactor;
-        cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
         matrixMultiplyKernel(&(G_mdiag[(i + 1) * blockSize * blockSize]),
                              &(A_lodiag[i * blockSize * blockSize]),
@@ -334,9 +355,12 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
         matrixAdder(g_ii, temp_result_2, &(G_mdiag[i * blockSize * blockSize]),
                     blockSize);
 
-        // Free temporary GPU memory
-        cudaFree(G_lowerfactor);
     }
+
+    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
+    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
+    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
+
 
     // Copy results back to host
     cudaMemcpy(input_G.mdiag, G_mdiag,
@@ -362,6 +386,8 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(temp_result_2);
     cudaFree(temp_result_3);
     cudaFree(temp_result_4);
+        // Free temporary GPU memory
+        cudaFree(G_lowerfactor);
 
     // Clean up of inverse kernel
     free(identity_matrix);
@@ -409,7 +435,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     float *A_updiag, *G_updiag;
     size_t size_updiag_A =
-        (nblocks - nblocks_2 - 1) * blockSize * blockSize * sizeof(float);
+        (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_updiag_G = nblocks_2 * blockSize * blockSize * sizeof(float);
     cudaMalloc(&A_updiag, size_updiag_A);
     cudaMalloc(&G_updiag, size_updiag_G);
@@ -446,6 +472,10 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     identity_matrix = createIdentityMatrix(blockSize);
 
+    
+        float *G_lowerfactor;
+        cudaMalloc(&G_lowerfactor, blockSizeBytes);
+
     // Launch CUDA kernels for matrix operations
 
     // 0. Inverse of the first block
@@ -459,17 +489,25 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                              G_mdiag + (i + 1) * blockSize * blockSize,
                              temp_result_1, blockSize, cublasHandle);
 
+        // printG(A_updiag + i * blockSize * blockSize, blockSize * blockSize);
+        // printG(temp_result_1, blockSize * blockSize);
+
         matrixMultiplyKernel(temp_result_1,
                              A_lodiag + i * blockSize * blockSize,
                              temp_result_2, blockSize, cublasHandle);
 
+        // printG(temp_result_2, blockSize * blockSize);
         matrixSubtracter(&(A_mdiag[(i - 1) * blockSize * blockSize]),
                          temp_result_2, temp_result_2, blockSize);
 
+        // printG(temp_result_2, blockSize * blockSize);
         matrixInversionKernel(temp_result_2,
                               &(G_mdiag[i * blockSize * blockSize]), blockSize,
                               cusolverHandle);
     }
+
+    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
+
 
     // Communicate the right connected block and receive the right connected
     // block
@@ -488,6 +526,9 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     MPI_Send((const void *)G_mdiag_host_send, blockSize * blockSize, MPI_FLOAT,
              0, 0, MPI_COMM_WORLD);
+
+    //  printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
+
 
     // Connection from both sides of the full G
     matrixMultiplyKernel(A_lodiag, G_mdiag, temp_result_1, blockSize,
@@ -530,11 +571,14 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                              blockSize, cublasHandle);
     }
 
+    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
+    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
+    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
+
+
     // 2. Backward substitution
     for (int i = 1; i < nblocks_2; ++i) {
         float *g_ii = G_mdiag + (i + 1) * blockSize * blockSize;
-        float *G_lowerfactor;
-        cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
         matrixMultiplyKernel(g_ii, &(A_lodiag[i * blockSize * blockSize]),
                              temp_result_1, blockSize, cublasHandle);
@@ -573,9 +617,12 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
         matrixAdder(g_ii, temp_result_2,
                     &(G_mdiag[(i + 1) * blockSize * blockSize]), blockSize);
 
-        // Free temporary GPU memory
-        cudaFree(G_lowerfactor);
     }
+
+    // printG(G_mdiag, (nblocks_2 + 1) * blockSize * blockSize);
+    // printG(G_updiag, (nblocks_2) * blockSize * blockSize);
+    // printG(G_lodiag, (nblocks_2) * blockSize * blockSize);
+
 
     // Copy results back to host
     cudaMemcpy(input_G.mdiag + nblocks_2 * blockSize * blockSize,
@@ -611,58 +658,60 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaFree(d_identity);
     cudaFree(d_info);
     cudaFree(d_result);
+        // Free temporary GPU memory
+        cudaFree(G_lowerfactor);
 
     // Destroy cuBLAS handle
     cublasDestroy(cublasHandle);
     cusolverDnDestroy(cusolverHandle);
 }
 
-typedef struct {
-    int matrixSize;
-    int blockSize;
-    int numRuns;
-    bool isSymmetric;
-    bool saveOffDiag;
-    char *inputPath;
-} Config;
+// typedef struct {
+//     int matrixSize;
+//     int blockSize;
+//     int numRuns;
+//     bool isSymmetric;
+//     bool saveOffDiag;
+//     char *inputPath;
+// } Config;
 
-void InitOptions(Config *config) {
-    config->blockSize = 2;
-    config->matrixSize = 0;
-    config->numRuns = 10;
-    config->isSymmetric = false;
-    config->saveOffDiag = true;
-    config->inputPath = NULL;
-}
+// void InitOptions(Config *config) {
+//     config->blockSize = 2;
+//     config->matrixSize = 0;
+//     config->numRuns = 10;
+//     config->isSymmetric = false;
+//     config->saveOffDiag = true;
+//     config->inputPath = NULL;
+// }
 
-int parse(Config *config, int argc, const char **argv) {
-    static const char *const usages[] = {
-        NULL,
-    };
-    struct argparse_option options[] = {
-        OPT_HELP(),
-        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL,
-                    0, 0),
-        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL, 0,
-                    0),
-        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL, 0,
-                    0),
-        OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
-                    NULL, 0, 0),
-        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag",
-                    NULL, 0, 0),
-        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0,
-                   0),
-        OPT_END(),
-    };
+// int parse(Config *config, int argc, const char **argv) {
+//     static const char *const usages[] = {
+//         NULL,
+//     };
+//     struct argparse_option options[] = {
+//         OPT_HELP(),
+//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL,
+//                     0, 0),
+//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL, 0,
+//                     0),
+//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL, 0,
+//                     0),
+//         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
+//                     NULL, 0, 0),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag",
+//                     NULL, 0, 0),
+//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0,
+//                    0),
+//         OPT_END(),
+//     };
 
-    struct argparse argparse;
-    argparse_init(&argparse, options, usages, 0);
-    argparse_describe(&argparse, "DPHPC TEAM", NULL);
-    argc = argparse_parse(&argparse, argc, argv);
+//     struct argparse argparse;
+//     argparse_init(&argparse, options, usages, 0);
+//     argparse_describe(&argparse, "DPHPC TEAM", NULL);
+//     argc = argparse_parse(&argparse, argc, argv);
 
-    return 0;
-}
+//     return 0;
+// }
 
 // // TEMP main to test stuff out
 // int main(int argc, const char *argv[]) {

@@ -1,6 +1,6 @@
 #include "rgf2.hpp"
 
-void printFloatArray(const float arr[], int size) {
+void printC(const float arr[], int size) {
     for (int i = 0; i < size; ++i) {
         std::cout << arr[i] << " ";
     }
@@ -36,6 +36,10 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
 
     if (processRank == 0) {
         rgf2sided_upperprocess(A, G, nblocks_2, sym_mat, save_off_diag);
+        
+        // printC(G.mdiag, nblocks * blockSize * blockSize);
+        // printC(G.lodiag, nblocks * blockSize * blockSize);
+        // printC(G.updiag, nblocks * blockSize * blockSize);
 
         MPI_Recv((void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
                  (nblocks_2)*blockSize * blockSize, MPI_FLOAT, 1, 0,
@@ -77,6 +81,8 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     int blockSize, matrixSize;
     A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
 
+    int nblocks = matrixSize / blockSize;
+
     float *A_diagblk_leftprocess = A.mdiag;
     float *A_upperblk_leftprocess = A.updiag;
     float *A_lowerblk_leftprocess = A.lodiag;
@@ -98,6 +104,11 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     // Initialisation of g - invert first block
     A.invBLAS(blockSize, A_diagblk_leftprocess, G_diagblk_leftprocess);
+    
+    // printC(G_diagblk_leftprocess, blockSize * blockSize);
+
+    // printC(G_diagblk_leftprocess, nblocks_2 * blockSize * blockSize);
+
 
     // Forward substitution
     for (int i = 1; i < nblocks_2; ++i) {
@@ -115,7 +126,12 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
         A.invBLAS(blockSize, temp_result_2,
                   G_diagblk_leftprocess + i * blockSize * blockSize);
+
+        // printC(G_diagblk_leftprocess, nblocks_2 * blockSize * blockSize);
+
     }
+
+    // printC(G_diagblk_leftprocess, nblocks_2 * blockSize * blockSize);
 
     // Communicate the left connected block and receive the right connected
     // block
@@ -127,6 +143,9 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         (void *)(G_diagblk_leftprocess + nblocks_2 * blockSize * blockSize),
         blockSize * blockSize, MPI_FLOAT, 1, 0, MPI_COMM_WORLD,
         MPI_STATUS_IGNORE);
+
+    
+    // printC(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
 
     // Connection from both sides of the full G
     A.mmmBLAS(blockSize,
@@ -190,6 +209,11 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                     (nblocks_2 - 1) * blockSize * blockSize);
     }
 
+    // printC(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
+    // printC(G_upperblk_leftprocess, (nblocks_2) * blockSize * blockSize);
+    // printC(G_lowerblk_leftprocess, (nblocks_2) * blockSize * blockSize);
+    
+
     // Backward substitution
     for (int i = nblocks_2 - 2; i >= 0; i -= 1) {
         float *g_ii = G_diagblk_leftprocess + i * blockSize * blockSize;
@@ -237,6 +261,10 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
         delete[] G_lowerfactor;
     }
+
+    // printC(G_diagblk_leftprocess, (nblocks_2 + 1) * blockSize * blockSize);
+    // printC(G_upperblk_leftprocess, (nblocks_2) * blockSize * blockSize);
+    // printC(G_lowerblk_leftprocess, (nblocks_2) * blockSize * blockSize);
 
     memcpy(G.mdiag, G_diagblk_leftprocess,
            (nblocks_2 + 1) * blockSize * blockSize * sizeof(float));
@@ -291,18 +319,25 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                   A_upperblk_rightprocess + i * blockSize * blockSize,
                   G_diagblk_rightprocess + (i + 1) * blockSize * blockSize,
                   temp_result_1);
+        
+        // printC(A_upperblk_rightprocess + i * blockSize * blockSize, blockSize * blockSize);
+        // printC(temp_result_1, blockSize * blockSize);
 
         A.mmmBLAS(blockSize, temp_result_1,
                   A_lowerbk_rightprocess + i * blockSize * blockSize,
                   temp_result_2);
+        // printC(temp_result_2, blockSize * blockSize);
 
         A.mmSub(blockSize,
                 A_diagblk_rightprocess + (i - 1) * blockSize * blockSize,
                 temp_result_2, temp_result_2);
+        // printC(temp_result_2, blockSize * blockSize);
 
         A.invBLAS(blockSize, temp_result_2,
                   G_diagblk_rightprocess + i * blockSize * blockSize);
     }
+
+    // printC(G_diagblk_rightprocess, (nblocks_2 + 1) * blockSize * blockSize);
 
     // Communicate the right connected block and receive the right connected
     // block
@@ -312,6 +347,8 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     MPI_Send((const void *)(G_diagblk_rightprocess + 1 * blockSize * blockSize),
              blockSize * blockSize, MPI_FLOAT, 0, 0, MPI_COMM_WORLD);
+
+    // printC(G_diagblk_rightprocess, (nblocks_2 + 1) * blockSize * blockSize);
 
     // Connection from both sides of the full G
     A.mmmBLAS(blockSize, A_lowerbk_rightprocess, G_diagblk_rightprocess,
@@ -353,6 +390,13 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                   G_diagblk_rightprocess + 1 * blockSize * blockSize,
                   G_upperblk_rightprocess);
     }
+
+    // printC(G_diagblk_rightprocess, (nblocks_2 + 1) * blockSize * blockSize);
+    // printC(G_upperblk_rightprocess, (nblocks_2) * blockSize * blockSize);
+    // printC(G_lowerblk_rightprocess, (nblocks_2) * blockSize * blockSize);
+    
+
+    // printC(G_diagblk_rightprocess, )
 
     // Backward substitution
     for (int i = 1; i < nblocks_2; ++i) {
@@ -399,6 +443,11 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
         A.mmAdd(blockSize, g_ii, temp_result_2,
                 G_diagblk_rightprocess + (i + 1) * blockSize * blockSize);
     }
+
+    // printC(G_diagblk_rightprocess, (nblocks_2 + 1) * blockSize * blockSize);
+    // printC(G_upperblk_rightprocess, (nblocks_2) * blockSize * blockSize);
+    // printC(G_lowerblk_rightprocess, (nblocks_2) * blockSize * blockSize);
+    
 
     memcpy(G.mdiag + nblocks_2 * blockSize * blockSize,
            G_diagblk_rightprocess + blockSize * blockSize,
