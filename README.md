@@ -99,4 +99,9 @@ Next steps:
    - Cuda Implementation RGF2Sided (MPI + CUDA)
    - Improve Performance leverag Streaming RGF1Sided (CUDA) & RGF2Sided (MPI + CUDA)
    - Analyis & Conclusion - first draft of Report
-  
+
+do the profiling to get flops
+example:
+```
+mpirun -np 1 ncu --metrics smsp__sass_thread_inst_executed_op_fadd_pred_on.sum,smsp__sass_thread_inst_executed_op_fmul_pred_on.sum,smsp__sass_thread_inst_executed_op_ffma_pred_on.sum ./test -m 16 -b 4 -n 10 -s 0 -o 1 > flops_16_rgf1.txt 
+``` 
