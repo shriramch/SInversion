@@ -104,4 +104,11 @@ do the profiling to get flops
 example:
 ```
 mpirun -np 1 ncu --metrics smsp__sass_thread_inst_executed_op_fadd_pred_on.sum,smsp__sass_thread_inst_executed_op_fmul_pred_on.sum,smsp__sass_thread_inst_executed_op_ffma_pred_on.sum ./test -m 16 -b 4 -n 10 -s 0 -o 1 > flops_16_rgf1.txt 
+
+Reference Nvidia document:
+https://docs.nvidia.com/nsight-compute/pdf/NsightComputeCli.pdf (page 36)
+
+nvprov --metrix flop_count_sp, flop_count_dp didn't work on davinci
+
 ``` 
+
