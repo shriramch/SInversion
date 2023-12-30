@@ -41,6 +41,8 @@ The new running method:
 ## Benchmarking
 - ./benchmark.sh Runs the benchmarking script
 - Run nohup ./benchmark.sh > output.log 2>&1 & to run it in the background
+- Memory Limit = Matrix Size * Block Size <= 2^25
+
 
 Very easy use:
 1. Implement your algorithm
