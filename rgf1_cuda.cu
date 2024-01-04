@@ -86,9 +86,11 @@ void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
 
     // Copy the input matrix A to the device
-    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyDeviceToDevice);
     cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
                cudaMemcpyHostToDevice);
+    // cudaMemcpy(result, identity_matrix, n * n * sizeof(float),
+    //            cudaMemcpyHostToDevice);
 
     // Perform LU decomposition on the device
     cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL,
@@ -100,10 +102,13 @@ void matrixInversionKernel(float *A, float *result, int n,
     cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL,
                      d_identity, n, d_info); // Not using PIVOT for now
 
+    // cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, A, n, NULL,
+    //                  result, n, d_info); // Not using PIVOT for now
+
     // std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n";
     // printFloatArrayFromCuda(d_identity, n * n);
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
-               cudaMemcpyDeviceToHost);
+               cudaMemcpyDeviceToDevice);
 }
 
 void matrixTransposeKernel(const float *A, float *result, int n,
@@ -135,42 +140,35 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cusolverDnCreate(&cusolverHandle);
 
     // Allocate memory for Matrix specifics on the GPU
-    float *A_mdiag, *G_mdiag;
     size_t size_mdiag = nblocks * blockSize * blockSize * sizeof(float);
-    cudaMalloc(&A_mdiag, size_mdiag);
-    cudaMalloc(&G_mdiag, size_mdiag);
+    size_t size_updiag = (nblocks - 1) * blockSize * blockSize * sizeof(float);
+    float *A_mat, *A_mdiag, *G_mat, *G_mdiag;
+    float *A_updiag, *G_updiag;
+    float *A_lodiag, *G_lodiag;
+    cudaMalloc(&A_mat, size_mdiag + 2 * size_updiag + 6 * blockSizeBytes);
+    cudaMalloc(&G_mat, size_mdiag + 2 * size_updiag);
+    A_mdiag = A_mat;
+    A_updiag = A_mat + size_mdiag / sizeof(float);
+    A_lodiag = A_updiag + size_updiag / sizeof(float);
+    G_mdiag = G_mat;
+    G_updiag = G_mat + size_mdiag / sizeof(float);
+    G_lodiag = G_updiag + size_updiag / sizeof(float);
 
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag, size_mdiag, cudaMemcpyHostToDevice);
-    cudaMemcpy(G_mdiag, input_G.mdiag, size_mdiag, cudaMemcpyHostToDevice);
-
-    float *A_updiag, *G_updiag;
-    size_t size_updiag = (nblocks - 1) * blockSize * blockSize * sizeof(float);
-    cudaMalloc(&A_updiag, size_updiag);
-    cudaMalloc(&G_updiag, size_updiag);
-
-    // Copy matrices from host to device
     cudaMemcpy(A_updiag, input_A.updiag, size_updiag, cudaMemcpyHostToDevice);
-    cudaMemcpy(G_updiag, input_G.updiag, size_updiag, cudaMemcpyHostToDevice);
-
-    float *A_lodiag, *G_lodiag;
-    cudaMalloc(&A_lodiag, size_updiag);
-    cudaMalloc(&G_lodiag, size_updiag);
-
-    // Copy matrices from host to device
     cudaMemcpy(A_lodiag, input_A.lodiag, size_updiag, cudaMemcpyHostToDevice);
-    cudaMemcpy(G_lodiag, input_G.lodiag, size_updiag, cudaMemcpyHostToDevice);
 
+    // Utility matrices
     float *AAi, *AGi;
-    cudaMalloc(&AAi, blockSizeBytes);
-    cudaMalloc(&AGi, blockSizeBytes);
-    // 2. Backward substitution
+    AAi = A_lodiag + size_updiag / sizeof(float);
+    AGi = AAi + blockSizeBytes / sizeof(float);
     float *Glf, *Glf1;
-    cudaMalloc(&Glf, blockSizeBytes);
-    cudaMalloc(&Glf1, blockSizeBytes);
+    Glf = AGi + blockSizeBytes / sizeof(float);
+    Glf1 = Glf + blockSizeBytes / sizeof(float);
     float *Guf, *Guf1;
-    cudaMalloc(&Guf, blockSizeBytes);
-    cudaMalloc(&Guf1, blockSizeBytes);
+    Guf = Glf1 + blockSizeBytes / sizeof(float);
+    Guf1 = Guf + blockSizeBytes / sizeof(float);
 
     // Inverse and transpose kernel variables
     cudaMalloc(&d_info, sizeof(int));
@@ -241,26 +239,13 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     }
 
     // Copy results back to host
-    cudaMemcpy(input_A.mdiag, A_mdiag, size_mdiag, cudaMemcpyDeviceToHost);
     cudaMemcpy(input_G.mdiag, G_mdiag, size_mdiag, cudaMemcpyDeviceToHost);
-    cudaMemcpy(input_A.updiag, A_updiag, size_updiag, cudaMemcpyDeviceToHost);
     cudaMemcpy(input_G.updiag, G_updiag, size_updiag, cudaMemcpyDeviceToHost);
-    cudaMemcpy(input_A.lodiag, A_lodiag, size_updiag, cudaMemcpyDeviceToHost);
     cudaMemcpy(input_G.lodiag, G_lodiag, size_updiag, cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    cudaFree(A_mdiag);
-    cudaFree(G_mdiag);
-    cudaFree(A_updiag);
-    cudaFree(G_updiag);
-    cudaFree(A_lodiag);
-    cudaFree(G_lodiag);
-    cudaFree(AAi);
-    cudaFree(AGi);
-    cudaFree(Guf);
-    cudaFree(Guf1);
-    cudaFree(Glf);
-    cudaFree(Glf1);
+    cudaFree(A_mat);
+    cudaFree(G_mat);
 
     // Clean up of inverse kernel
     free(identity_matrix);
@@ -311,9 +296,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
-//         diag", NULL, 0, 0), OPT_STRING('f', "inputPath", &config->inputPath,
-//         "input path", NULL,0,0), OPT_END(),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0), OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,0,0), OPT_END(),
 //     };
 
 //     struct argparse argparse;
@@ -325,7 +308,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
 // }
 
 // int main(int argc, const char *argv[]) {
-//     const char *bin_name = argv[0];
+//     // const char *bin_name = argv[0];
 //     Config config;
 //     InitOptions(&config);
 //     parse(&config, argc, argv);
@@ -336,7 +319,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
 //         int MATRIX_SIZE = config.matrixSize;
 //         int BLOCK_SIZE = config.blockSize;
 //         assert(MATRIX_SIZE % BLOCK_SIZE == 0);
-//         int NUM_RUNS = config.numRuns;
+//         // int NUM_RUNS = config.numRuns;
 //         bool IS_SYMMETRIC = config.isSymmetric;
 //         bool SAVE_OFF_DIAG = config.saveOffDiag;
 

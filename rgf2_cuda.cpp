@@ -54,9 +54,11 @@ void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
 
     // Copy the input matrix A to the device
-    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyDeviceToDevice);
     cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
                cudaMemcpyHostToDevice);
+    // cudaMemcpy(result, identity_matrix, n * n * sizeof(float),
+    //            cudaMemcpyHostToDevice);
 
     // Perform LU decomposition on the device
     cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL,
@@ -68,10 +70,13 @@ void matrixInversionKernel(float *A, float *result, int n,
     cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL,
                      d_identity, n, d_info); // Not using PIVOT for now
 
+    // cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, A, n, NULL,
+    //                  result, n, d_info); // Not using PIVOT for now
+
     // std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n";
     // printFloatArrayFromCuda(d_identity, n * n);
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
-               cudaMemcpyDeviceToHost);
+               cudaMemcpyDeviceToDevice);
 }
 
 void matrixTransposeKernel(const float *A, float *result, int n,
@@ -147,42 +152,40 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
+
     // Allocate memory for Matrix specifics on the GPU
-    float *A_mdiag, *G_mdiag;
+    float *A_mdiag, *G_mdiag, *A_mat, *G_mat;
+    float *A_updiag, *G_updiag;
+    float *A_lodiag, *G_lodiag;
     size_t size_mdiag_A = nblocks * blockSize * blockSize * sizeof(float);
+    size_t size_updiag_A =
+        (nblocks - 1) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
         (nblocks_2 + 1) * blockSize * blockSize * sizeof(float);
-    cudaMalloc(&A_mdiag, size_mdiag_A);
-    cudaMalloc(&G_mdiag, size_mdiag_G);
+    size_t size_updiag_G = nblocks_2 * blockSize * blockSize * sizeof(float);
+    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
+    cudaMalloc(&A_mat, size_mdiag_A + 2 * size_updiag_A + 5 * blockSizeBytes);
+    cudaMalloc(&G_mat, size_mdiag_G + 2 * size_updiag_G);
+    A_mdiag = A_mat;
+    A_updiag = A_mat + size_mdiag_A / sizeof(float);
+    A_lodiag = A_updiag + size_updiag_A / sizeof(float);
+    G_mdiag = G_mat;
+    G_updiag = G_mat + size_mdiag_G / sizeof(float);
+    G_lodiag = G_updiag + size_updiag_G / sizeof(float);
 
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag, size_mdiag_A, cudaMemcpyHostToDevice);
-
-    float *A_updiag, *G_updiag;
-    size_t size_updiag_A =
-        (nblocks - 1) * blockSize * blockSize * sizeof(float);
-
-    size_t size_updiag_G = nblocks_2 * blockSize * blockSize * sizeof(float);
-    cudaMalloc(&A_updiag, size_updiag_A);
-    cudaMalloc(&G_updiag, size_updiag_G);
-
-    // Copy matrices from host to device
     cudaMemcpy(A_updiag, input_A.updiag, size_updiag_A, cudaMemcpyHostToDevice);
-
-    float *A_lodiag, *G_lodiag;
-    cudaMalloc(&A_lodiag, size_updiag_A);
-    cudaMalloc(&G_lodiag, size_updiag_G);
-
-    // Copy matrices from host to device
     cudaMemcpy(A_lodiag, input_A.lodiag, size_updiag_A, cudaMemcpyHostToDevice);
 
     // Create temp result matrixes
-    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
     float *temp_result_1, *temp_result_2, *temp_result_3, *temp_result_4;
-    cudaMalloc(&temp_result_1, blockSizeBytes);
-    cudaMalloc(&temp_result_2, blockSizeBytes);
-    cudaMalloc(&temp_result_3, blockSizeBytes);
-    cudaMalloc(&temp_result_4, blockSizeBytes);
+    float *G_lowerfactor;
+    temp_result_1 = A_lodiag + size_updiag_A / sizeof(float);
+    temp_result_2 = temp_result_1 + blockSizeBytes / sizeof(float);
+    temp_result_3 = temp_result_2 + blockSizeBytes / sizeof(float);
+    temp_result_4 = temp_result_3 + blockSizeBytes / sizeof(float);
+    G_lowerfactor = temp_result_4 + blockSizeBytes / sizeof(float);
 
     // Inverse and transpose kernel variables
     cudaMalloc(&d_info, sizeof(int));
@@ -193,8 +196,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
 
     identity_matrix = createIdentityMatrix(blockSize);
-    float *G_lowerfactor;
-    cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
     // Launch CUDA kernels for matrix operations
 
@@ -348,17 +349,8 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    cudaFree(A_mdiag);
-    cudaFree(G_mdiag);
-    cudaFree(A_updiag);
-    cudaFree(G_updiag);
-    cudaFree(A_lodiag);
-    cudaFree(G_lodiag);
-    cudaFree(temp_result_1);
-    cudaFree(temp_result_2);
-    cudaFree(temp_result_3);
-    cudaFree(temp_result_4);
-    cudaFree(G_lowerfactor);
+    cudaFree(A_mat);
+    cudaFree(G_mat);
 
     // Clean up of inverse kernel
     free(identity_matrix);
@@ -390,48 +382,45 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
-
+    
     // Allocate memory for Matrix specifics on the GPU
-    float *A_mdiag, *G_mdiag;
-    size_t size_mdiag_A =
+    float *A_mdiag, *G_mdiag, *A_mat, *G_mat;
+    float *A_updiag, *G_updiag;
+    float *A_lodiag, *G_lodiag;
+    size_t size_mdiag_A = (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
+    size_t size_updiag_A =
         (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
         (nblocks_2 + 1) * blockSize * blockSize * sizeof(float);
-    cudaMalloc(&A_mdiag, size_mdiag_A);
-    cudaMalloc(&G_mdiag, size_mdiag_G);
-
+    size_t size_updiag_G = nblocks_2 * blockSize * blockSize * sizeof(float);
+    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
+    cudaMalloc(&A_mat, size_mdiag_A + 2 * size_updiag_A + 5 * blockSizeBytes);
+    cudaMalloc(&G_mat, size_mdiag_G + 2 * size_updiag_G);
+    A_mdiag = A_mat;
+    A_updiag = A_mat + size_mdiag_A / sizeof(float);
+    A_lodiag = A_updiag + size_updiag_A / sizeof(float);
+    G_mdiag = G_mat;
+    G_updiag = G_mat + size_mdiag_G / sizeof(float);
+    G_lodiag = G_updiag + size_updiag_G / sizeof(float);
+    
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag + nblocks_2 * blockSize * blockSize,
                size_mdiag_A, cudaMemcpyHostToDevice);
-
-    float *A_updiag, *G_updiag;
-    size_t size_updiag_A =
-        (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
-    size_t size_updiag_G = nblocks_2 * blockSize * blockSize * sizeof(float);
-    cudaMalloc(&A_updiag, size_updiag_A);
-    cudaMalloc(&G_updiag, size_updiag_G);
-
-    // Copy matrices from host to device
     cudaMemcpy(A_updiag,
                input_A.updiag + (nblocks_2 - 1) * blockSize * blockSize,
                size_updiag_A, cudaMemcpyHostToDevice);
-
-    float *A_lodiag, *G_lodiag;
-    cudaMalloc(&A_lodiag, size_updiag_A);
-    cudaMalloc(&G_lodiag, size_updiag_G);
-
-    // Copy matrices from host to device
     cudaMemcpy(A_lodiag,
                input_A.lodiag + (nblocks_2 - 1) * blockSize * blockSize,
                size_updiag_A, cudaMemcpyHostToDevice);
 
     // Create temp result matrixes
-    size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
     float *temp_result_1, *temp_result_2, *temp_result_3, *temp_result_4;
-    cudaMalloc(&temp_result_1, blockSizeBytes);
-    cudaMalloc(&temp_result_2, blockSizeBytes);
-    cudaMalloc(&temp_result_3, blockSizeBytes);
-    cudaMalloc(&temp_result_4, blockSizeBytes);
+    float *G_lowerfactor;
+    temp_result_1 = A_lodiag + size_updiag_A / sizeof(float);
+    temp_result_2 = temp_result_1 + blockSizeBytes / sizeof(float);
+    temp_result_3 = temp_result_2 + blockSizeBytes / sizeof(float);
+    temp_result_4 = temp_result_3 + blockSizeBytes / sizeof(float);
+    G_lowerfactor = temp_result_4 + blockSizeBytes / sizeof(float);
 
     // Inverse and transpose kernel variables
     cudaMalloc(&d_info, sizeof(int));
@@ -442,9 +431,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
 
     identity_matrix = createIdentityMatrix(blockSize);
-
-    float *G_lowerfactor;
-    cudaMalloc(&G_lowerfactor, blockSizeBytes);
 
     // Launch CUDA kernels for matrix operations
 
@@ -585,17 +571,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                cudaMemcpyDeviceToHost);
 
     // Free GPU memory
-    cudaFree(A_mdiag);
-    cudaFree(G_mdiag);
-    cudaFree(A_updiag);
-    cudaFree(G_updiag);
-    cudaFree(A_lodiag);
-    cudaFree(G_lodiag);
-    cudaFree(temp_result_1);
-    cudaFree(temp_result_2);
-    cudaFree(temp_result_3);
-    cudaFree(temp_result_4);
-    cudaFree(G_lowerfactor);
+    cudaFree(A_mat);
+    cudaFree(G_mat);
 
     // Clean up of inverse kernel
     free(identity_matrix);
@@ -646,12 +623,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
-//         diag",
-//                     NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL,
-//         0,
-//                    0),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
+//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
 //         OPT_END(),
 //     };
 
