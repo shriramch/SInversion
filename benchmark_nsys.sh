@@ -10,8 +10,10 @@ mkdir -p $OUTPUT_FOLDER
 NUMRUNS=10   # num_of_runs
 SYMMETRIC=0  # matrix is symmtric or not
 
-M_VALUES=(16384) # matrix size, skip 524288 
-B_VALUES=(256 512 1024 2048) # block size 
+M_VALUES=(16384 32768) # matrix size, skip 524288 
+B_VALUES=(8192) # block size 
+
+#B_VALUES=(64 256 1024 2048 4096 8192) # block size 
 
 
 CODESETS=("rgf1_cuda")
