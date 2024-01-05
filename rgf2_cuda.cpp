@@ -1,12 +1,9 @@
 #include "rgf2_cuda.hpp"
-#include "argparse.h"
-#include "rgf2.hpp"
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 #include <mpi.h>
-int processRank;
 
 extern void kernel_init(int n);
 extern void matrixSubtracter(float *A, float *B, float *result, int n);
@@ -116,24 +113,22 @@ void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
                  (nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 1, 2,
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
     } else if (processRank == 1) {
-        Matrix G_dup(matrixSize, G.getMat());
-        G_dup.convertDenseToBlkTridiag(blockSize);
 
-        rgf2sided_lowerprocess_cuda(A, G_dup, nblocks - nblocks_2, sym_mat,
+        rgf2sided_lowerprocess_cuda(A, G, nblocks - nblocks_2, sym_mat,
                                     save_off_diag);
 
         MPI_Send(
-            (const void *)(G_dup.mdiag + nblocks_2 * blockSize * blockSize),
+            (const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
             (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
             MPI_COMM_WORLD);
 
         MPI_Send(
-            (const void *)(G_dup.updiag + nblocks_2 * blockSize * blockSize),
+            (const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
             (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 1,
             MPI_COMM_WORLD);
 
         MPI_Send(
-            (const void *)(G_dup.lodiag + nblocks_2 * blockSize * blockSize),
+            (const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
             (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 2,
             MPI_COMM_WORLD);
     }
@@ -592,6 +587,9 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     cusolverDnDestroy(cusolverHandle);
 }
 
+// int processRank;
+// #include "rgf2.hpp"
+// #include "argparse.h"
 // typedef struct {
 //     int matrixSize;
 //     int blockSize;
@@ -662,13 +660,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
 //         Matrix inputMatrix =
-//             generateBandedDiagonalMatrix(MATRIX_SIZE, 2, true, 0);
-//         // Matrix inputMatrix = generateFixedMatrixOfSize4();
-//         // inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
-
-//         // if (processRank == 0) {
-//         //     inputMatrix.printB();
-//         // }
+//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
 
 //         Matrix tempResult(
 //             MATRIX_SIZE); // zero initialization, same shape as inputMatrix

@@ -12,11 +12,9 @@ void Matrix::copyMatrixData(const Matrix &other) {
     matrixSize = other.matrixSize;
     blockSize = other.blockSize;
     int nblocks = matrixSize / blockSize;
-    mat = new float[matrixSize * matrixSize];
     mdiag = new float[nblocks * blockSize * blockSize];
     updiag = new float[(nblocks - 1) * blockSize * blockSize];
     lodiag = new float[(nblocks - 1) * blockSize * blockSize];
-    memcpy(mat, other.mat, matrixSize * matrixSize * sizeof(float));
     memcpy(mdiag, other.mdiag, nblocks * blockSize * blockSize * sizeof(float));
     memcpy(updiag, other.updiag,
            (nblocks - 1) * blockSize * blockSize * sizeof(float));
@@ -29,7 +27,6 @@ Matrix::Matrix(const Matrix &other) { copyMatrixData(other); }
 // Copy assignment operator - allow different size
 Matrix &Matrix::operator=(const Matrix &other) {
     if (this != &other) {
-        delete[] mat;
         delete[] mdiag;
         delete[] updiag;
         delete[] lodiag;
@@ -41,7 +38,6 @@ Matrix &Matrix::operator=(const Matrix &other) {
 /* Zero-initialize matrix  */
 Matrix::Matrix(int N) {
     matrixSize = N;
-    // mat = new float[N * N]();
     blockSize = 1;
     mdiag = NULL;
     updiag = NULL;
@@ -51,49 +47,21 @@ Matrix::Matrix(int N) {
 /* initlize matrix with size N and values newMat */
 Matrix::Matrix(int N, float *newMat) {
     matrixSize = N;
-    // mat = new float[N * N];
-    // memcpy(mat, newMat, N * N * sizeof(float));
     blockSize = 1;
     mdiag = NULL;
     updiag = NULL;
     lodiag = NULL;
 }
 
-// convert back to show the result
-void Matrix::convertBlkTridiagToDense() {
-    mat = new float[matrixSize * matrixSize];
-    assert(matrixSize % blockSize ==
-           0); // matrixSize must be divisible by blockSize
-    int nblocks = matrixSize / blockSize;
-    // Assume it is called after initialization of mdiag, updiag, lodiag
-    for (int b = 0; b < nblocks; ++b) {
-        for (int i = 0; i < blockSize; ++i) {
-            for (int j = 0; j < blockSize; ++j) {
-                mat[(b * blockSize + i) * matrixSize + (b * blockSize + j)] =
-                    mdiag[b * blockSize * blockSize + i * blockSize + j];
-            }
-        }
-    }
-
-    for (int b = 0; b < nblocks - 1; ++b) {
-        for (int i = 0; i < blockSize; ++i) {
-            for (int j = 0; j < blockSize; ++j) {
-                mat[(b * blockSize + i) * matrixSize +
-                    ((b + 1) * blockSize + j)] =
-                    updiag[b * blockSize * blockSize + i * blockSize + j];
-                mat[((b + 1) * blockSize + i) * matrixSize +
-                    (b * blockSize + j)] =
-                    lodiag[b * blockSize * blockSize + i * blockSize + j];
-            }
-        }
-    }
-}
-
 void Matrix::transposeBLAS(int n, float *A, float *result) {
     cblas_somatcopy(CblasRowMajor, CblasTrans, n, n, 1.0f, A, n, result, n);
 }
 
-/* Generate 3 representations */
+/* Generate 3 representations.
+   Note: this function has not the same behavior as the name.
+   It allocates the diagonal, upper, and lower blocks. 
+   The content is not initialized, which is filled in generateBandedDiagonalMatrix
+*/
 void Matrix::convertDenseToBlkTridiag(const int blockSize) {
     this->blockSize = blockSize;
     assert(matrixSize % blockSize ==
@@ -102,38 +70,6 @@ void Matrix::convertDenseToBlkTridiag(const int blockSize) {
     mdiag = new float[nblocks * blockSize * blockSize];
     updiag = new float[(nblocks - 1) * blockSize * blockSize];
     lodiag = new float[(nblocks - 1) * blockSize * blockSize];
-    // for (int b = 0; b < nblocks; ++b) {
-    //     for (int i = 0; i < blockSize; ++i) {
-    //         for (int j = 0; j < blockSize; ++j) {
-    //             mdiag[b * blockSize * blockSize + i * blockSize + j] =
-    //                 mat[(b * blockSize + i) * matrixSize + (b * blockSize +
-    //                 j)];
-    //         }
-    //     }
-    // }
-
-    // for (int b = 0; b < nblocks - 1; ++b) {
-    //     for (int i = 0; i < blockSize; ++i) {
-    //         for (int j = 0; j < blockSize; ++j) {
-    //             updiag[b * blockSize * blockSize + i * blockSize + j] =
-    //                 mat[(b * blockSize + i) * matrixSize +
-    //                     ((b + 1) * blockSize + j)];
-    //             lodiag[b * blockSize * blockSize + i * blockSize + j] =
-    //                 mat[((b + 1) * blockSize + i) * matrixSize +
-    //                     (b * blockSize + j)];
-    //         }
-    //     }
-    // }
-}
-
-void Matrix::printM() {
-    std::cout << "Matrix: " << std::endl;
-    for (int i = 0; i < matrixSize; ++i) {
-        for (int j = 0; j < matrixSize; ++j) {
-            std::cout << mat[i * matrixSize + j] << " ";
-        }
-        std::cout << std::endl;
-    }
 }
 
 void Matrix::printB() {
@@ -180,8 +116,6 @@ void Matrix::getBlockSizeAndMatrixSize(int &outBlockSize, int &outMatrixSize) {
     outMatrixSize = matrixSize;
 }
 
-float *Matrix::getMat() { return mat; }
-
 // Note, we expect the same size for both the lists
 bool Matrix::allclose(const float *a, const float *b, std::size_t size,
                       double rtol, double atol, bool isPrint) {
@@ -197,7 +131,6 @@ bool Matrix::allclose(const float *a, const float *b, std::size_t size,
             return false; // Elements are not almost equal
         }
     }
-
     return true; // All elements are almost equal
 }
 
@@ -269,47 +202,7 @@ void Matrix::matScale(int n, float *A, int k, float *result) {
     }
 }
 
-/*
-    Generate a dense matrix of shape: (matrice_size x matrice_size) filled
-    with random numbers. The matrice should real valued.
-*/
-// Matrix generateRandomMat(int matrixSize, bool isSymmetric, int seed) {
-//     Matrix mat(matrixSize);
-//     float *matrix = mat.getMat();
-//     if (seed != 0) {
-//         // Seed the random number generator if a seed is provided
-//         std::srand(seed);
-//     } else {
-//         // Seed the random number generator with the current time if no seed
-//         is
-//         // provided
-//         std::srand(static_cast<unsigned int>(std::time(nullptr)));
-//     }
-
-//     for (int i = 0; i < matrixSize; i++) {
-//         for (int j = 0; j < matrixSize; j++) {
-//             // Generate a random real-valued number between 0 and 1
-//             float random_number =
-//                 static_cast<float>(std::rand()) /
-//                 static_cast<float>(RAND_MAX);
-
-//             // Store the number in the matrix
-//             matrix[i * matrixSize + j] = random_number;
-
-//             if (isSymmetric && i != j) {
-//                 // If the matrix is symmetric, set the corresponding
-//                 // off-diagonal element
-//                 matrix[j * matrixSize + i] = random_number;
-//             }
-//         }
-//     }
-//     return mat;
-// }
-
 void generateRandomMat(int matrixSize, bool isSymmetric, float *matrix) {
-    // Matrix mat(matrixSize);
-    // float *matrix = mat.getMat();
-
     for (int i = 0; i < matrixSize; i++) {
         for (int j = 0; j < matrixSize; j++) {
             // Generate a random real-valued number between 0 and 1
@@ -326,9 +219,13 @@ void generateRandomMat(int matrixSize, bool isSymmetric, float *matrix) {
             }
         }
     }
-    // return mat;
 }
 
+/* Note: this function has not the same behavior as the name.
+   It allocate only the diagonal, upper, and lower blocks. 
+   The matrix function has no internal representation. 
+   This is done for fast calculation. In real scenario, this is not desired.
+*/
 Matrix generateBandedDiagonalMatrix(int matrixSize, int blockSize,
                                     bool isSymmetric, int seed) {
     Matrix A(matrixSize);
@@ -364,91 +261,4 @@ Matrix generateBandedDiagonalMatrix(int matrixSize, int blockSize,
         }
     }
     return A;
-}
-
-/*
-    Generate a banded diagonal matrix of shape: matrice_size^2 with a
-    bandwidth = matrice_bandwidth, filled with random numbers.
-*/
-// Matrix generateBandedDiagonalMatrix(int matrixSize, int matriceBandwidth,
-//                                     bool isSymmetric, int seed) {
-//     Matrix A = generateRandomMat(matrixSize, isSymmetric, seed);
-//     float *matrix = A.getMat();
-//     for (int i = 0; i < matrixSize; ++i) {
-//         for (int j = 0; j < matrixSize; ++j) {
-//             if (i - j > matriceBandwidth || j - i > matriceBandwidth) {
-//                 matrix[i * matrixSize + j] = 0;
-//             }
-//         }
-//     }
-//     return A;
-// }
-
-void makeMatrixBanded(int matrixSize, int matriceBandwidth, float *matrix) {
-    for (int i = 0; i < matrixSize; ++i) {
-        for (int j = 0; j < matrixSize; ++j) {
-            if (i - j > matriceBandwidth || j - i > matriceBandwidth) {
-                matrix[i * matrixSize + j] = 0;
-            }
-        }
-    }
-}
-
-// fixed matrix; matrixSize = 8, blocksize = 2, bandwidth = 2
-// isSymmetric = true
-Matrix generateFixedMatrixOfSize8() {
-    float given_matrix[8][8] = {{0.11214, 0.976047, 0, 0, 0, 0, 0, 0},
-                                {0.976047, 0.423681, 0.434601, 0, 0, 0, 0, 0},
-                                {0, 0.434601, 0.337407, 0.218091, 0, 0, 0, 0},
-                                {0, 0, 0.218091, 0.452596, 0.381082, 0, 0, 0},
-                                {0, 0, 0, 0.381082, 0.845901, 0.514452, 0, 0},
-                                {0, 0, 0, 0, 0.514452, 0.392368, 0.065431, 0},
-                                {0, 0, 0, 0, 0, 0.065431, 0.698868, 0.690582},
-                                {0, 0, 0, 0, 0, 0, 0.690582, 0.606674}};
-    int total_elements = 8 * 8;
-    float *oneDArray = (float *)malloc(total_elements * sizeof(float));
-    int index = 0;
-    for (int i = 0; i < 8; i++) {
-        for (int j = 0; j < 8; j++) {
-            oneDArray[index] = given_matrix[i][j];
-            index++;
-        }
-    }
-    Matrix result(8, oneDArray);
-    free(oneDArray);
-    return result;
-}
-
-// fixed matrix; matrixSize = 4, blocksize = 2, bandwidth = 1
-// isSymmetric = true
-Matrix generateFixedMatrixOfSize4() {
-    int N = 4;
-    float given_matrix[N][N] = {
-        {1, 0, 0, 0}, {0, 2, 0, 0}, {0, 0, 3, 0}, {0, 0, 0, 4}};
-    int total_elements = N * N;
-    float *oneDArray = (float *)malloc(total_elements * sizeof(float));
-    int index = 0;
-    for (int i = 0; i < N; i++) {
-        for (int j = 0; j < N; j++) {
-            oneDArray[index] = given_matrix[i][j];
-            index++;
-        }
-    }
-    Matrix result(N, oneDArray);
-    free(oneDArray);
-    return result;
-}
-
-/*
-    Make a matrix symmetric;
-*/
-void transformToSymmetric(Matrix &A) {
-    float *matrix = A.getMat();
-    int matrixSize, blockSize;
-    A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
-    for (int i = 0; i < matrixSize; ++i) {
-        for (int j = i; j < matrixSize; ++j) {
-            matrix[j * matrixSize + i] = matrix[i * matrixSize + j];
-        }
-    }
 }

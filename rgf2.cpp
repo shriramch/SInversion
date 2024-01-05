@@ -1,12 +1,5 @@
 #include "rgf2.hpp"
 
-// void printC(const float arr[], int size) {
-//     for (int i = 0; i < size; ++i) {
-//         std::cout << arr[i] << " ";
-//     }
-//     std::cout << std::endl;
-// }
-
 void rgf2sided(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     int processRank, blockSize, matrixSize;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
@@ -31,22 +24,20 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
                  MPI_COMM_WORLD, MPI_STATUS_IGNORE);
 
     } else if (processRank == 1) {
-        Matrix G_dup(matrixSize, G.getMat());
-        G_dup.convertDenseToBlkTridiag(blockSize);
-        rgf2sided_lowerprocess(A, G_dup, nblocks - nblocks_2, sym_mat,
+        rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat,
                                save_off_diag);
         MPI_Send(
-            (const void *)(G_dup.mdiag + nblocks_2 * blockSize * blockSize),
+            (const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
             (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
             MPI_COMM_WORLD);
 
         MPI_Send(
-            (const void *)(G_dup.updiag + nblocks_2 * blockSize * blockSize),
+            (const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
             (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 1,
             MPI_COMM_WORLD);
 
         MPI_Send(
-            (const void *)(G_dup.lodiag + nblocks_2 * blockSize * blockSize),
+            (const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
             (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 2,
             MPI_COMM_WORLD);
     }
@@ -403,3 +394,103 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 
     return;
 }
+
+// #include "argparse.h"
+// #include "rgf1.hpp"
+// typedef struct {
+//     int matrixSize;
+//     int blockSize;
+//     int numRuns;
+//     bool isSymmetric;
+//     bool saveOffDiag;
+//     char *inputPath;
+// } Config;
+
+// void InitOptions(Config *config) {
+//     config->blockSize = 2;
+//     config->matrixSize = 0;
+//     config->numRuns = 10;
+//     config->isSymmetric = false;
+//     config->saveOffDiag = true;
+//     config->inputPath = NULL;
+// }
+
+// int parse(Config *config, int argc, const char **argv) {
+//     static const char *const usages[] = {
+//         NULL,
+//     };
+//     struct argparse_option options[] = {
+//         OPT_HELP(),
+//         OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
+//         NULL,
+//                     0, 0),
+//         OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
+//         0,
+//                     0),
+//         OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
+//         0,
+//                     0),
+//         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
+//                     NULL, 0, 0),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
+//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
+//         OPT_END(),
+//     };
+
+//     struct argparse argparse;
+//     argparse_init(&argparse, options, usages, 0);
+//     argparse_describe(&argparse, "DPHPC TEAM", NULL);
+//     argc = argparse_parse(&argparse, argc, argv);
+
+//     return 0;
+// }
+
+// // TEMP main to test stuff out
+// int main(int argc, const char *argv[]) {
+//     int processRank;
+//     const char *bin_name = argv[0];
+//     Config config;
+//     InitOptions(&config);
+//     parse(&config, argc, argv);
+
+//     MPI_Init(&argc, (char ***)(&argv));
+//     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
+
+//     if (config.inputPath != NULL) {
+//         // read matrix from file
+//     } else if (config.matrixSize != 0) {
+//         // generate matrix
+//         int MATRIX_SIZE = config.matrixSize;
+//         int BLOCK_SIZE = config.blockSize;
+//         assert(MATRIX_SIZE % BLOCK_SIZE == 0);
+//         int NUM_RUNS = config.numRuns;
+//         bool IS_SYMMETRIC = config.isSymmetric;
+//         bool SAVE_OFF_DIAG = config.saveOffDiag;
+
+//         Matrix inputMatrix =
+//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+
+//         Matrix tempResult(
+//             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+//         tempResult.convertDenseToBlkTridiag(
+//             BLOCK_SIZE); // G has same blockSize as inputMatrix
+//         rgf2sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+//         if (processRank == 0) {
+//             std::cout << "\n\nrgf2 RESULT\n\n";
+//             tempResult.printB();
+//         }
+
+//         // compare agains rgf1
+//         Matrix tempResult_cpp(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+//         tempResult_cpp.convertDenseToBlkTridiag(BLOCK_SIZE); // G has same blockSize as inputMatrix
+        
+//         rgf1sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+//         if (processRank == 0) {
+//             std::cout << "\n\nrgf2 RESULT\n\n";
+//             tempResult.printB();
+//         }
+
+//     }
+//     MPI_Finalize();
+// }

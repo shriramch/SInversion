@@ -88,3 +88,11 @@ rgf2_cuda:
 
 lsbc2: rgf2_cuda
 	mpirun -np 2 ./test -m 64 -b 8 -n 10 -s 0 -o 1 > run.txt
+
+test_correct: 
+	$(MPI) -c $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) $(CUDA2) test_correct.cpp rgf1.cpp rgf2.cpp rgf2_cuda.cpp matrices_utils.cpp argparse.cpp
+	$(CUDA) -c $(CUDA_FLAGS) cuda_kernels.cu
+	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) -o test
+	rm *.o
+lsbtest_correct:
+	mpirun -np 2 ./test -m 16 -b 4 -n 1 -s 0 -o 1 > run.txt

@@ -19,7 +19,7 @@
 
 class Matrix {
     int matrixSize, blockSize;
-    float *mat;
+    float *mat;  // keep the mat field for future use. not used in this project anymore
     bool allclose(const float *a, const float *b, std::size_t size,
                   double rtol = 1e-3, double atol = 1e-5, bool isPrint = true);
 
@@ -30,10 +30,8 @@ public:
     Matrix(const Matrix &other);
     Matrix &operator=(const Matrix &other);
     void copyMatrixData(const Matrix &other);
-    float *getMat();
     bool compareDiagonals(const Matrix &other, bool);
     void convertDenseToBlkTridiag(const int);
-    void convertBlkTridiagToDense();
     void printM();
     void printB();
     void getBlockSizeAndMatrixSize(int &, int &);
@@ -50,7 +48,3 @@ Matrix generateRandomMat(int matrixSize, bool isSymmetric = false,
                          int seed = 0);
 Matrix generateBandedDiagonalMatrix(int matrixSize, int matriceBandwidth,
                                     bool isSymmetric = false, int seed = 0);
-Matrix generateFixedMatrixOfSize8();
-Matrix generateFixedMatrixOfSize4();
-void transformToSymmetric(Matrix &A);
-void makeMatrixBanded(int matrixSize, int matriceBandwidth, float *matrix);
