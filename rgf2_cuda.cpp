@@ -148,7 +148,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     // int kernels_num_blocks = blockSize;
     // int kernels_num_threads = blockSize;
     int kernels_num_threads = 1024; // Max threads per thread-block
-    int kernels_num_blocks = (nblocks * nblocks + kernels_num_threads - 1) / kernels_num_threads;
+    int kernels_num_blocks = (blocksize * blocksize + kernels_num_threads - 1) / kernels_num_threads;
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
