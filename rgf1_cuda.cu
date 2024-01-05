@@ -70,6 +70,15 @@ __global__ void matrixScaleKernel(float *A, float k, float *result, int n) {
     }
 }
 
+__global__ void setIdentityMatrix(float *result, int n) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index < n * n) {
+        int i = index / n;
+        int j = index % n;
+        result[index] = (i == j) ? 1 : 0;
+    }
+}
+
 // Function to create an identity matrix of size n x n
 float *createIdentityMatrix(int n) {
     float *identityMatrix = (float *)malloc(n * n * sizeof(float));
@@ -87,8 +96,11 @@ void matrixInversionKernel(float *A, float *result, int n,
 
     // Copy the input matrix A to the device
     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyDeviceToDevice);
-    cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
-               cudaMemcpyHostToDevice);
+    // cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
+    //            cudaMemcpyHostToDevice);
+    int num_treads = 1024;
+    int num_blocks = (n * n + num_treads - 1) / num_treads;
+    setIdentityMatrix<<<num_blocks, num_treads>>>(d_identity, n);
     // cudaMemcpy(result, identity_matrix, n * n * sizeof(float),
     //            cudaMemcpyHostToDevice);
 
@@ -128,8 +140,10 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
     int nblocks = matrixSize / blockSize;
 
-    int kernels_num_blocks = nblocks;
-    int kernels_num_threads = nblocks;
+    // int kernels_num_blocks = nblocks;
+    // int kernels_num_threads = nblocks;
+    int kernels_num_threads = 1024; // Max threads per thread-block
+    int kernels_num_blocks = (nblocks * nblocks + kernels_num_threads - 1) / kernels_num_threads;
     size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
 
     // Initialize the handle used for cuBLAS
@@ -154,6 +168,14 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     G_updiag = G_mat + size_mdiag / sizeof(float);
     G_lodiag = G_updiag + size_updiag / sizeof(float);
 
+    // Inverse and transpose kernel variables
+    cudaMalloc(&d_info, sizeof(int));
+    cudaMalloc(&d_A, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_identity, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&d_work, blockSize * blockSize * sizeof(float));
+    cudaMalloc(&ipiv, blockSize * sizeof(int));
+    cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
+
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag, size_mdiag, cudaMemcpyHostToDevice);
     cudaMemcpy(A_updiag, input_A.updiag, size_updiag, cudaMemcpyHostToDevice);
@@ -170,15 +192,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     Guf = Glf1 + blockSizeBytes / sizeof(float);
     Guf1 = Guf + blockSizeBytes / sizeof(float);
 
-    // Inverse and transpose kernel variables
-    cudaMalloc(&d_info, sizeof(int));
-    cudaMalloc(&d_A, blockSize * blockSize * sizeof(float));
-    cudaMalloc(&d_identity, blockSize * blockSize * sizeof(float));
-    cudaMalloc(&d_work, blockSize * blockSize * sizeof(float));
-    cudaMalloc(&ipiv, blockSize * sizeof(int));
-    cudaMalloc((void **)&d_result, blockSize * blockSize * sizeof(float));
-
-    identity_matrix = createIdentityMatrix(blockSize);
+    // identity_matrix = createIdentityMatrix(blockSize);
 
     // Launch CUDA kernels for matrix operations
 
@@ -248,7 +262,7 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     cudaFree(G_mat);
 
     // Clean up of inverse kernel
-    free(identity_matrix);
+    // free(identity_matrix);
     cudaFree(d_A);
     cudaFree(d_work);
     cudaFree(ipiv);

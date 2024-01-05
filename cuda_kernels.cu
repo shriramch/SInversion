@@ -4,7 +4,11 @@
 
 int kernels_num_blocks, kernels_num_threads;
 
-void kernel_init(int n) { kernels_num_blocks = kernels_num_threads = n; }
+// void kernel_init(int n) { kernels_num_blocks = kernels_num_threads = n; }
+void kernel_init(int n) {
+    kernels_num_threads = 1024;
+    kernels_num_blocks = (n * n + kernels_num_threads - 1) / kernels_num_threads;
+}
 
 __global__ void matrixSubtractKernel(float *A, float *B, float *result, int n) {
     int index = blockIdx.x * blockDim.x + threadIdx.x;
@@ -53,4 +57,17 @@ __global__ void matrixMultiplyKernel_old(float *A, float *B, float *result,
         }
         result[row * n + col] = sum;
     }
+}
+
+__global__ void setIdentityMatrixKernel(float *result, int n) {
+    int index = blockIdx.x * blockDim.x + threadIdx.x;
+    if (index < n * n) {
+        int i = index / n;
+        int j = index % n;
+        result[index] = (i == j) ? 1 : 0;
+    }
+}
+
+void setIdentityMatrix(float *result, int n) {
+    setIdentityMatrixKernel<<<kernels_num_blocks, kernels_num_threads>>>(result, n);
 }
