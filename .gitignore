@@ -5,7 +5,7 @@ test_cuda
 a.out
 .vscode
 run.txt
-output_logs*
+output*
 testpy
 create_plot.py
 .editorconfig
@@ -13,3 +13,7 @@ output.log
 test.80s*
 *.ipynb
 lsb.DPHPC_Project.r*
+figures*
+steps_to_libraries.md
+plot_rgf.py
+create_plot.py
