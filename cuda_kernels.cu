@@ -7,7 +7,8 @@ int kernels_num_blocks, kernels_num_threads;
 // void kernel_init(int n) { kernels_num_blocks = kernels_num_threads = n; }
 void kernel_init(int n) {
     kernels_num_threads = 1024;
-    kernels_num_blocks = (n * n + kernels_num_threads - 1) / kernels_num_threads;
+    kernels_num_blocks =
+        (n * n + kernels_num_threads - 1) / kernels_num_threads;
 }
 
 __global__ void matrixSubtractKernel(float *A, float *B, float *result, int n) {
@@ -69,5 +70,6 @@ __global__ void setIdentityMatrixKernel(float *result, int n) {
 }
 
 void setIdentityMatrix(float *result, int n) {
-    setIdentityMatrixKernel<<<kernels_num_blocks, kernels_num_threads>>>(result, n);
+    setIdentityMatrixKernel<<<kernels_num_blocks, kernels_num_threads>>>(result,
+                                                                         n);
 }

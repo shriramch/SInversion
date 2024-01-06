@@ -13,14 +13,31 @@ void printMatrix(const float *matrix, int width, int height) {
     }
 }
 
+/**
+ * @brief Performs a one-sided RGF inversion on a given matrix.
+ *
+ * This function performs a one-sided RGF inversion on a given matrix.
+ *
+ * @param A The matrix on which the RGF inversion is to be performed.
+ * @param G The matrix that will hold the result of the RGF inversion.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric. Default is false.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix. Default is true.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size.
+ */
 void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
                bool save_off_diag = true) {
     int blockSize, matrixSize;
     A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
+    int nblocks = matrixSize / blockSize;
+
     // 0. Inverse of the first block
     A.invBLAS(blockSize, A.mdiag, G.mdiag);
-
-    int nblocks = matrixSize / blockSize;
 
     // 1. Forward substitution (performed left to right)
     for (int i = 1; i < nblocks; ++i) {
@@ -109,9 +126,9 @@ void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
-//         OPT_END(),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
+//         diag", NULL, 0, 0), OPT_STRING('f', "inputPath", &config->inputPath,
+//         "input path", NULL, 0, 0), OPT_END(),
 //     };
 
 //     struct argparse argparse;
@@ -145,7 +162,8 @@ void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
 //         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
 //         Matrix inputMatrix =
-//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE,
+//             IS_SYMMETRIC, 0);
 
 //         Matrix tempResult(
 //             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
@@ -157,7 +175,7 @@ void rgf1sided(Matrix &A, Matrix &G, bool sym_mat = false,
 //         if (processRank == 0) {
 //             std::cout << "\n\nrgf1 RESULT\n\n";
 //             tempResult.printB();
-//         }    
+//         }
 //     }
 //     MPI_Finalize();
 // }

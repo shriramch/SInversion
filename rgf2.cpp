@@ -1,5 +1,24 @@
 #include "rgf2.hpp"
 
+/**
+ * @brief Performs a two-sided RGF inversion on a given matrix.
+ *
+ * This function performs a two-sided RGF inversion on a given matrix. The
+ * inversion is performed in parallel using MPI, with different processes
+ * handling different halves of the matrix.
+ *
+ * @param A The matrix on which the RGF inversion is to be performed.
+ * @param G The matrix that will hold the result of the RGF inversion.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size, and that the number of blocks is divisible by 2.
+ */
 void rgf2sided(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     int processRank, blockSize, matrixSize;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
@@ -26,23 +45,40 @@ void rgf2sided(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     } else if (processRank == 1) {
         rgf2sided_lowerprocess(A, G, nblocks - nblocks_2, sym_mat,
                                save_off_diag);
-        MPI_Send(
-            (const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
+                 MPI_COMM_WORLD);
 
-        MPI_Send(
-            (const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 1,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT,
+                 0, 1, MPI_COMM_WORLD);
 
-        MPI_Send(
-            (const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 2,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT,
+                 0, 2, MPI_COMM_WORLD);
     }
 }
 
+/**
+ * @brief Performs the upper half of a two-sided RGF inversion on a given
+ * matrix.
+ *
+ * This function performs the upper half of a two-sided RGF inversion on a given
+ * matrix.
+ *
+ * @param A The matrix on which the RGF inversion is to be performed.
+ * @param G The matrix that will hold the result of the RGF inversion.
+ * @param nblocks_2 The number of blocks in the upper half of the matrix.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size, and that the number of blocks is divisible by 2.
+ */
 void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                             bool save_off_diag) {
     int blockSize, matrixSize;
@@ -230,6 +266,26 @@ void rgf2sided_upperprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
     return;
 }
 
+/**
+ * @brief Performs the lower half of a two-sided RGF inversion on a given
+ * matrix.
+ *
+ * This function performs the lower half of a two-sided RGF inversion on a given
+ * matrix.
+ *
+ * @param A The matrix on which the RGF inversion is to be performed.
+ * @param G The matrix that will hold the result of the RGF inversion.
+ * @param nblocks_2 The number of blocks in the lower half of the matrix.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size, and that the number of blocks is divisible by 2.
+ */
 void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
                             bool save_off_diag) {
     int blockSize, matrixSize;
@@ -432,9 +488,9 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
-//         OPT_END(),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
+//         diag", NULL, 0, 0), OPT_STRING('f', "inputPath", &config->inputPath,
+//         "input path", NULL, 0, 0), OPT_END(),
 //     };
 
 //     struct argparse argparse;
@@ -468,7 +524,8 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 //         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
 //         Matrix inputMatrix =
-//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE,
+//             IS_SYMMETRIC, 0);
 
 //         Matrix tempResult(
 //             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
@@ -482,9 +539,11 @@ void rgf2sided_lowerprocess(Matrix &A, Matrix &G, int nblocks_2, bool sym_mat,
 //         }
 
 //         // compare agains rgf1
-//         Matrix tempResult_cpp(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-//         tempResult_cpp.convertDenseToBlkTridiag(BLOCK_SIZE); // G has same blockSize as inputMatrix
-        
+//         Matrix tempResult_cpp(MATRIX_SIZE); // zero initialization, same
+//         shape as inputMatrix
+//         tempResult_cpp.convertDenseToBlkTridiag(BLOCK_SIZE); // G has same
+//         blockSize as inputMatrix
+
 //         rgf1sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 //         if (processRank == 0) {
 //             std::cout << "\n\nrgf2 RESULT\n\n";

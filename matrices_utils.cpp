@@ -59,8 +59,9 @@ void Matrix::transposeBLAS(int n, float *A, float *result) {
 
 /* Generate 3 representations.
    Note: this function has not the same behavior as the name.
-   It allocates the diagonal, upper, and lower blocks. 
-   The content is not initialized, which is filled in generateBandedDiagonalMatrix
+   It allocates the diagonal, upper, and lower blocks.
+   The content is not initialized, which is filled in
+   generateBandedDiagonalMatrix
 */
 void Matrix::convertDenseToBlkTridiag(const int blockSize) {
     this->blockSize = blockSize;
@@ -222,8 +223,8 @@ void generateRandomMat(int matrixSize, bool isSymmetric, float *matrix) {
 }
 
 /* Note: this function has not the same behavior as the name.
-   It allocate only the diagonal, upper, and lower blocks. 
-   The matrix function has no internal representation. 
+   It allocate only the diagonal, upper, and lower blocks.
+   The matrix function has no internal representation.
    This is done for fast calculation. In real scenario, this is not desired.
 */
 Matrix generateBandedDiagonalMatrix(int matrixSize, int blockSize,

@@ -17,16 +17,7 @@ float *d_A, *d_identity, *d_work;
 int *ipiv;
 float *d_result;
 
-// void printG(const float arr[], int size) {
-//     // size /= sizeof(float);
-//     float tempResult[size];
-//     cudaMemcpy(tempResult, arr, sizeof(float) * size,
-//     cudaMemcpyDeviceToHost); for (int i = 0; i < size; ++i) {
-//         std::cout << tempResult[i] << " ";
-//     }
-//     std::cout << std::endl;
-// }
-
+// Function to multiply two matrices A and B on the GPU
 void matrixMultiplyKernel(float *A, float *B, float *result, int n,
                           cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
@@ -48,36 +39,29 @@ float *createIdentityMatrix(int n) {
     return identityMatrix;
 }
 
+// Function to invert a matrix using cuSolver
 void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
 
     // Copy the input matrix A to the device
     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyDeviceToDevice);
-    // cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
-    //            cudaMemcpyHostToDevice);
     setIdentityMatrix(d_identity, n);
-    // cudaMemcpy(result, identity_matrix, n * n * sizeof(float),
-    //            cudaMemcpyHostToDevice);
 
     // Perform LU decomposition on the device
     cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL,
                      d_info); // Not using PIVOT for now
 
-    // Solving AX = I  , where X is the result_matrix, and I is the
+    // Solving AX = I, where X is the result_matrix, and I is the
     // identity_matrix. Since AA^(-1) = I It saves on the result_matrix
     // (identity) the answer
     cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL,
                      d_identity, n, d_info); // Not using PIVOT for now
 
-    // cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, A, n, NULL,
-    //                  result, n, d_info); // Not using PIVOT for now
-
-    // std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n";
-    // printFloatArrayFromCuda(d_identity, n * n);
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
                cudaMemcpyDeviceToDevice);
 }
 
+// Function to transpose a matrix using cuBLAS
 void matrixTransposeKernel(const float *A, float *result, int n,
                            cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
@@ -88,6 +72,25 @@ void matrixTransposeKernel(const float *A, float *result, int n,
                 &beta, NULL, n, result, n);
 }
 
+/**
+ * @brief Performs a two-sided RGF inversion on a given matrix using CUDA.
+ *
+ * This function performs a two-sided RGF inversion on a given matrix using
+ * CUDA. The operation is performed in parallel using MPI, with different
+ * processes handling different halves of the matrix.
+ *
+ * @param A The matrix on which the RGF inversion is to be performed.
+ * @param G The matrix that will hold the result of the RGF inversion.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size, and that the number of blocks is divisible by 2.
+ */
 void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
     int processRank, blockSize, matrixSize;
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
@@ -117,33 +120,50 @@ void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
         rgf2sided_lowerprocess_cuda(A, G, nblocks - nblocks_2, sym_mat,
                                     save_off_diag);
 
-        MPI_Send(
-            (const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
+                 MPI_COMM_WORLD);
 
-        MPI_Send(
-            (const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 1,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT,
+                 0, 1, MPI_COMM_WORLD);
 
-        MPI_Send(
-            (const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 2,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT,
+                 0, 2, MPI_COMM_WORLD);
     }
 }
 
+/**
+ * @brief Performs the upper half of a two-sided RGF inversion on a given
+ * matrix using CUDA.
+ *
+ * This function performs the upper half of a two-sided RGF inversion on a given
+ * matrix using CUDA.
+ *
+ * @param input_A The matrix on which the RGF inversion is to be performed.
+ * @param input_G The matrix that will hold the result of the RGF inversion.
+ * @param nblocks_2 The number of blocks in the upper half of the matrix.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size, and that the number of blocks is divisible by 2.
+ */
 void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                                  int nblocks_2, bool sym_mat,
                                  bool save_off_diag) {
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
     int nblocks = matrixSize / blockSize;
-    // int kernels_num_blocks = blockSize;
-    // int kernels_num_threads = blockSize;
+
     int kernels_num_threads = 1024; // Max threads per thread-block
-    int kernels_num_blocks = (blockSize * blockSize + kernels_num_threads - 1) / kernels_num_threads;
+    int kernels_num_blocks =
+        (blockSize * blockSize + kernels_num_threads - 1) / kernels_num_threads;
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
@@ -194,10 +214,7 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     temp_result_4 = temp_result_3 + blockSizeBytes / sizeof(float);
     G_lowerfactor = temp_result_4 + blockSizeBytes / sizeof(float);
 
-    // identity_matrix = createIdentityMatrix(blockSize);
-
     // Launch CUDA kernels for matrix operations
-
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag, G_mdiag, blockSize, cusolverHandle);
 
@@ -263,7 +280,6 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
                           blockSize, cusolverHandle);
 
     // Compute the shared off-diagonal upper block
-
     matrixMultiplyKernel(G_mdiag + nblocks_2 * blockSize * blockSize,
                          A_lodiag + (nblocks_2 - 1) * blockSize * blockSize,
                          temp_result_1, blockSize, cublasHandle);
@@ -365,6 +381,26 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     cusolverDnDestroy(cusolverHandle);
 }
 
+/**
+ * @brief Performs the lower half of a two-sided RGF inversion on a given
+ * matrix using CUDA.
+ *
+ * This function performs the lower half of a two-sided RGF inversion on a given
+ * matrix using CUDA.
+ *
+ * @param input_A The matrix on which the RGF inversion is to be performed.
+ * @param input_G The matrix that will hold the result of the RGF inversion.
+ * @param nblocks_2 The number of blocks in the upper half of the matrix.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size, and that the number of blocks is divisible by 2.
+ */
 void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                                  int nblocks_2, bool sym_mat,
                                  bool save_off_diag) {
@@ -381,12 +417,13 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
-    
+
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag, *A_mat, *G_mat;
     float *A_updiag, *G_updiag;
     float *A_lodiag, *G_lodiag;
-    size_t size_mdiag_A = (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
+    size_t size_mdiag_A =
+        (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_updiag_A =
         (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
@@ -401,7 +438,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     G_mdiag = G_mat;
     G_updiag = G_mat + size_mdiag_G / sizeof(float);
     G_lodiag = G_updiag + size_updiag_G / sizeof(float);
-    
+
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag + nblocks_2 * blockSize * blockSize,
                size_mdiag_A, cudaMemcpyHostToDevice);
@@ -432,7 +469,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     identity_matrix = createIdentityMatrix(blockSize);
 
     // Launch CUDA kernels for matrix operations
-
     // 0. Inverse of the first block
     matrixInversionKernel(A_mdiag + (nblocks_2 - 1) * blockSize * blockSize,
                           G_mdiag + nblocks_2 * blockSize * blockSize,
@@ -458,7 +494,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     // Communicate the right connected block and receive the right connected
     // block
-
     float *G_mdiag_host_send = new float[blockSize * blockSize]();
     float *G_mdiag_host_recv = new float[blockSize * blockSize]();
 
@@ -496,7 +531,6 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
                           blockSize, cusolverHandle);
 
     // Compute the shared off-diagonal upper block
-
     matrixMultiplyKernel(G_mdiag + (1) * blockSize * blockSize, A_lodiag,
                          temp_result_1, blockSize, cublasHandle);
 
@@ -625,9 +659,9 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
-//         OPT_END(),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
+//         diag", NULL, 0, 0), OPT_STRING('f', "inputPath", &config->inputPath,
+//         "input path", NULL, 0, 0), OPT_END(),
 //     };
 
 //     struct argparse argparse;
@@ -660,7 +694,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
 //         Matrix inputMatrix =
-//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE,
+//             IS_SYMMETRIC, 0);
 
 //         Matrix tempResult(
 //             MATRIX_SIZE); // zero initialization, same shape as inputMatrix

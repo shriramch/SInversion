@@ -1,19 +1,24 @@
-#include "rgf2_cuda.hpp"
 #include "argparse.h"
-#include "rgf2.hpp"
 #include "rgf1.hpp"
+#include "rgf1_cuda.hpp"
+#include "rgf2.hpp"
+#include "rgf2_cuda.hpp"
 #include <cublas_v2.h>
 #include <cuda.h>
 #include <cuda_runtime.h>
 #include <cusolverDn.h>
 #include <mpi.h>
+
 /*
-  general workflow to print the result of each implemenation. No need to compile each main under the implementation. 
-  we can compare them manually. If all of them are same, we have some certaninty that the result is correct.
-  Didn't compare with the blas inversion (this is done before) since we remove the matrix interval representation.
+  general workflow to print the result of each implemenation. No need to compile
+  each main under the implementation. we can compare them manually. If all of
+  them are same, we have some certainty that the result is correct. Didn't
+  compare with the blas inversion (this is done before) since we remove the
+  matrix interval representation.
 */
 
 int processRank;
+
 typedef struct {
     int matrixSize;
     int blockSize;
@@ -38,19 +43,18 @@ int parse(Config *config, int argc, const char **argv) {
     };
     struct argparse_option options[] = {
         OPT_HELP(),
-        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size",
-        NULL,
+        OPT_INTEGER('m', "matrixSize", &config->matrixSize, "matrix size", NULL,
                     0, 0),
-        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL,
-        0,
+        OPT_INTEGER('b', "blockSize", &config->blockSize, "block size", NULL, 0,
                     0),
-        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL,
-        0,
+        OPT_INTEGER('n', "numRuns", &config->numRuns, "number of runs", NULL, 0,
                     0),
         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
                     NULL, 0, 0),
-        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
+        OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag",
+                    NULL, 0, 0),
+        OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0,
+                   0),
         OPT_END(),
     };
 
@@ -83,26 +87,34 @@ int main(int argc, const char *argv[]) {
         bool IS_SYMMETRIC = config.isSymmetric;
         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
-        Matrix inputMatrix =
-            generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+        Matrix inputMatrix = generateBandedDiagonalMatrix(
+            MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
 
         Matrix tempResult(
             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
         tempResult.convertDenseToBlkTridiag(
             BLOCK_SIZE); // G has same blockSize as inputMatrix
-        rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+        rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
         if (processRank == 0) {
-            std::cout << "\n\nrgf2_CUDA RESULT\n\n";
+            std::cout << "\n\nRGF1_CUDA RESULT\n\n";
             tempResult.printB();
         }
 
-        // temResult is just the output, it is reusable
+        // Check against the CUDA RGF2
+        rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+        if (processRank == 0) {
+            std::cout << "\n\nRGF2_CUDA RESULT\n\n";
+            tempResult.printB();
+        }
+
         // Check against the already implemented RGF2 on C++
         rgf2sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
         if (processRank == 0) {
-            std::cout << "\n\nrgf2 RESULT \n\n";
+            std::cout << "\n\nRGF2 RESULT\n\n";
             tempResult.printB();
         }
 
@@ -110,7 +122,7 @@ int main(int argc, const char *argv[]) {
         rgf1sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
         if (processRank == 0) {
-            std::cout << "\n\nrgf1 RESULT \n\n";
+            std::cout << "\n\nRGF1 RESULT\n\n";
             tempResult.printB();
         }
     }

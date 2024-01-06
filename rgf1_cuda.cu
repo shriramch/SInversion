@@ -9,22 +9,7 @@ float *d_A, *d_identity, *d_work;
 int *ipiv;
 float *d_result;
 
-// void printFloatArray(const float arr[], int size) {
-//     for (int i = 0; i < size; ++i) {
-//         std::cout << arr[i] << " ";
-//     }
-//     std::cout << std::endl;
-// }
-
-// void printFloatArrayFromCuda(const float arr[], int size) {
-//     float tempResult[size];
-//     cudaMemcpy(tempResult, arr, sizeof(float) * size,
-//     cudaMemcpyDeviceToHost); for (int i = 0; i < size; ++i) {
-//         std::cout << tempResult[i] << " ";
-//     }
-//     std::cout << std::endl;
-// }
-
+// Function to multiply two matrices on the GPU
 void matrixMultiplyKernel(float *A, float *B, float *result, int n,
                           cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
@@ -89,18 +74,16 @@ float *createIdentityMatrix(int n) {
     return identityMatrix;
 }
 
+// Function to invert a matrix on the GPU using cuSolver
 void matrixInversionKernel(float *A, float *result, int n,
                            cusolverDnHandle_t cusolverHandle) {
 
     // Copy the input matrix A to the device
     cudaMemcpy(d_A, A, n * n * sizeof(float), cudaMemcpyDeviceToDevice);
-    // cudaMemcpy(d_identity, identity_matrix, n * n * sizeof(float),
-    //            cudaMemcpyHostToDevice);
-    int num_treads = 1024;
-    int num_blocks = (n * n + num_treads - 1) / num_treads;
-    setIdentityMatrix<<<num_blocks, num_treads>>>(d_identity, n);
-    // cudaMemcpy(result, identity_matrix, n * n * sizeof(float),
-    //            cudaMemcpyHostToDevice);
+
+    int num_threads = 1024;
+    int num_blocks = (n * n + num_threads - 1) / num_threads;
+    setIdentityMatrix<<<num_blocks, num_threads>>>(d_identity, n);
 
     // Perform LU decomposition on the device
     cusolverDnSgetrf(cusolverHandle, n, n, d_A, n, d_work, NULL,
@@ -112,15 +95,11 @@ void matrixInversionKernel(float *A, float *result, int n,
     cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, d_A, n, NULL,
                      d_identity, n, d_info); // Not using PIVOT for now
 
-    // cusolverDnSgetrs(cusolverHandle, CUBLAS_OP_N, n, n, A, n, NULL,
-    //                  result, n, d_info); // Not using PIVOT for now
-
-    // std::cout << "printing d_identity from CUDA after cusolverDnSgetrs: \n";
-    // printFloatArrayFromCuda(d_identity, n * n);
     cudaMemcpy(result, d_identity, n * n * sizeof(float),
                cudaMemcpyDeviceToDevice);
 }
 
+// Function to transpose a matrix on the GPU using cuBLAS
 void matrixTransposeKernel(const float *A, float *result, int n,
                            cublasHandle_t cublasHandle) {
     const float alpha = 1.0f;
@@ -131,7 +110,24 @@ void matrixTransposeKernel(const float *A, float *result, int n,
                 &beta, NULL, n, result, n);
 }
 
-// CUDA-accelerated rgf1sided function
+/**
+ * @brief Performs a one-sided RGF inversion on a given matrix using CUDA.
+ *
+ * This function performs a one-sided RGF inversion on a given matrix using
+ * CUDA.
+ *
+ * @param A The matrix on which the RGF inversion is to be performed.
+ * @param G The matrix that will hold the result of the RGF inversion.
+ * @param sym_mat A boolean flag indicating whether the input matrix is
+ * symmetric. Default is false.
+ * @param save_off_diag A boolean flag indicating whether to save the
+ * off-diagonal elements of the matrix. Default is true.
+ *
+ * @return void
+ *
+ * @note This function assumes that the size of the matrix is divisible by the
+ * block size.
+ */
 void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
                     bool save_off_diag) {
     int blockSize, matrixSize;
@@ -141,7 +137,8 @@ void rgf1sided_cuda(Matrix &input_A, Matrix &input_G, bool sym_mat,
     // int kernels_num_blocks = nblocks;
     // int kernels_num_threads = nblocks;
     int kernels_num_threads = 1024; // Max threads per thread-block
-    int kernels_num_blocks = (nblocks * nblocks + kernels_num_threads - 1) / kernels_num_threads;
+    int kernels_num_blocks =
+        (nblocks * nblocks + kernels_num_threads - 1) / kernels_num_threads;
     size_t blockSizeBytes = blockSize * blockSize * sizeof(float);
 
     // Initialize the handle used for cuBLAS

@@ -1,14 +1,10 @@
 #include "argparse.h"
+#include "liblsb.h"
 #include "matrices_utils.hpp"
 #include "rgf1.hpp"
 #include "rgf1_cuda.hpp"
 #include "rgf2.hpp"
 #include "rgf2_cuda.hpp"
-
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
-    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
-#include "liblsb.h"
-#endif
 
 #include <cmath>
 #include <functional>
@@ -116,11 +112,7 @@ int main(int argc, const char *argv[]) {
     int processRank;
     MPI_Init(&argc, (char ***)(&argv));
     MPI_Comm_rank(MPI_COMM_WORLD, &processRank);
-
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
-    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Init("DPHPC_Project", 0);
-#endif
 
     Config config;
     InitOptions(&config);
@@ -136,6 +128,9 @@ int main(int argc, const char *argv[]) {
         bool IS_SYMMETRIC = config.isSymmetric;
         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
+        Matrix inputMatrix =
+            generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, true, 0);
+
         // Vector of algorithm functions and their names
         std::vector<std::pair<AlgorithmFunction, std::string>> algorithms = {
 #if defined ENABLE_LIBLSB1
@@ -143,44 +138,12 @@ int main(int argc, const char *argv[]) {
 #elif defined ENABLE_LIBLSB2
             {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"}
 #elif defined ENABLE_LIBLSB_C1
-            {rgf1sidedCUDAAlgorithm, "rgf1CUDA"}
+            {rgf1sidedCUDAAlgorithm, "rgf1sidedCUDAAlgorithm"}
 #elif defined ENABLE_LIBLSB_C2
-            {rgf2sidedCUDAAlgorithm, "rgf2CUDA"}
-#else
-        // {rgf1sidedAlgorithm, "rgf1sidedAlgorithm"},
-        // {rgf2sidedAlgorithm, "rgf2sidedAlgorithm"},
-        // {rgf1sidedCUDAAlgorithm, "rgf1sidedCUDAAlgorithm"},
+            {rgf2sidedCUDAAlgorithm, "rgf2sidedCUDAAlgorithm"}
 #endif
         };
 
-        Matrix inputMatrix =
-            generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, true, 0);
-        // inputMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
-
-#if !defined ENABLE_LIBLSB1 && !defined ENABLE_LIBLSB2 &&                      \
-    !defined ENABLE_LIBLSB_C1 && !defined ENABLE_LIBLSB_C2
-        float *base_inv = new float[MATRIX_SIZE * MATRIX_SIZE]();
-        inputMatrix.invBLAS(MATRIX_SIZE, inputMatrix.getMat(), base_inv);
-        Matrix baseResultMatrix(MATRIX_SIZE, base_inv);
-        baseResultMatrix.convertDenseToBlkTridiag(BLOCK_SIZE);
-        for (const auto &algorithm : algorithms) {
-            Matrix tempResult(MATRIX_SIZE);
-            tempResult.convertDenseToBlkTridiag(BLOCK_SIZE);
-            algorithm.first(inputMatrix, tempResult, MATRIX_SIZE, BLOCK_SIZE,
-                            IS_SYMMETRIC, SAVE_OFF_DIAG);
-            if (processRank == 0) {
-                if (!baseResultMatrix.compareDiagonals(tempResult, false)) {
-                    std::cout << "Error while running the function:"
-                              << algorithm.second << std::endl;
-                    return -1;
-                }
-                std::cout << algorithm.second << " test passed!" << std::endl;
-            }
-        }
-#endif
-
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
-    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
         for (const auto &algorithm : algorithms) {
             for (int i = 0; i < NUM_RUNS; ++i) {
                 Matrix tempResult(MATRIX_SIZE);
@@ -192,8 +155,6 @@ int main(int argc, const char *argv[]) {
                 LSB_Rec(i);
             }
         }
-#else
-#endif
 
     } else if (processRank == 0) {
         printf("Usage (random mode): mpirun -np 2 %s -m <matrixSize> -b "
@@ -207,12 +168,7 @@ int main(int argc, const char *argv[]) {
         return 1;
     }
 
-#if defined ENABLE_LIBLSB1 || defined ENABLE_LIBLSB2 ||                        \
-    defined ENABLE_LIBLSB_C1 || defined ENABLE_LIBLSB_C2
     LSB_Finalize();
-#endif
-    std::cout << "reached end" << std::endl;
-
     MPI_Finalize();
     return 0;
 }
