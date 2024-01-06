@@ -117,20 +117,17 @@ void rgf2sided_cuda(Matrix &A, Matrix &G, bool sym_mat, bool save_off_diag) {
         rgf2sided_lowerprocess_cuda(A, G, nblocks - nblocks_2, sym_mat,
                                     save_off_diag);
 
-        MPI_Send(
-            (const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.mdiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2) * blockSize * blockSize, MPI_FLOAT, 0, 0,
+                 MPI_COMM_WORLD);
 
-        MPI_Send(
-            (const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 1,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.updiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT,
+                 0, 1, MPI_COMM_WORLD);
 
-        MPI_Send(
-            (const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
-            (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT, 0, 2,
-            MPI_COMM_WORLD);
+        MPI_Send((const void *)(G.lodiag + nblocks_2 * blockSize * blockSize),
+                 (nblocks - nblocks_2 - 1) * blockSize * blockSize, MPI_FLOAT,
+                 0, 2, MPI_COMM_WORLD);
     }
 }
 
@@ -142,8 +139,10 @@ void rgf2sided_upperprocess_cuda(Matrix &input_A, Matrix &input_G,
     int nblocks = matrixSize / blockSize;
     // int kernels_num_blocks = blockSize;
     // int kernels_num_threads = blockSize;
-    int kernels_num_threads = 1024; // Max threads per thread-block
-    int kernels_num_blocks = (blockSize * blockSize + kernels_num_threads - 1) / kernels_num_threads;
+    // int kernels_num_threads = 1024; // Max threads per thread-block
+    // int kernels_num_blocks =
+    //     (blockSize * blockSize + kernels_num_threads - 1) /
+    //     kernels_num_threads;
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
@@ -372,8 +371,10 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     int blockSize, matrixSize;
     input_A.getBlockSizeAndMatrixSize(blockSize, matrixSize);
     int nblocks = matrixSize / blockSize;
-    int kernels_num_blocks = blockSize;
-    int kernels_num_threads = blockSize;
+    // int kernels_num_threads = 1024; // Max threads per thread-block
+    // int kernels_num_blocks =
+    //     (blockSize * blockSize + kernels_num_threads - 1) /
+    //     kernels_num_threads;
 
     // Initialize the handle used for cuBLAS
     cublasHandle_t cublasHandle;
@@ -381,12 +382,13 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
-    
+
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag, *A_mat, *G_mat;
     float *A_updiag, *G_updiag;
     float *A_lodiag, *G_lodiag;
-    size_t size_mdiag_A = (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
+    size_t size_mdiag_A =
+        (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_updiag_A =
         (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
@@ -401,7 +403,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     G_mdiag = G_mat;
     G_updiag = G_mat + size_mdiag_G / sizeof(float);
     G_lodiag = G_updiag + size_updiag_G / sizeof(float);
-    
+
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag + nblocks_2 * blockSize * blockSize,
                size_mdiag_A, cudaMemcpyHostToDevice);
@@ -625,9 +627,9 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //                     0),
 //         OPT_INTEGER('s', "isSymmetric", &config->isSymmetric, "is symmetric",
 //                     NULL, 0, 0),
-//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off diag", NULL, 0, 0),
-//         OPT_STRING('f', "inputPath", &config->inputPath, "input path", NULL, 0, 0),
-//         OPT_END(),
+//         OPT_INTEGER('o', "saveOffDiag", &config->saveOffDiag, "save off
+//         diag", NULL, 0, 0), OPT_STRING('f', "inputPath", &config->inputPath,
+//         "input path", NULL, 0, 0), OPT_END(),
 //     };
 
 //     struct argparse argparse;
@@ -660,7 +662,8 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 //         bool SAVE_OFF_DIAG = config.saveOffDiag;
 
 //         Matrix inputMatrix =
-//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+//             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE,
+//             IS_SYMMETRIC, 0);
 
 //         Matrix tempResult(
 //             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
