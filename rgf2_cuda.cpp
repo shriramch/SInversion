@@ -411,13 +411,12 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
 
     cublasCreate(&cublasHandle);
     cusolverDnCreate(&cusolverHandle);
-
+    
     // Allocate memory for Matrix specifics on the GPU
     float *A_mdiag, *G_mdiag, *A_mat, *G_mat;
     float *A_updiag, *G_updiag;
     float *A_lodiag, *G_lodiag;
-    size_t size_mdiag_A =
-        (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
+    size_t size_mdiag_A = (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_updiag_A =
         (nblocks - nblocks_2) * blockSize * blockSize * sizeof(float);
     size_t size_mdiag_G =
@@ -432,7 +431,7 @@ void rgf2sided_lowerprocess_cuda(Matrix &input_A, Matrix &input_G,
     G_mdiag = G_mat;
     G_updiag = G_mat + size_mdiag_G / sizeof(float);
     G_lodiag = G_updiag + size_updiag_G / sizeof(float);
-
+    
     // Copy matrices from host to device
     cudaMemcpy(A_mdiag, input_A.mdiag + nblocks_2 * blockSize * blockSize,
                size_mdiag_A, cudaMemcpyHostToDevice);
