@@ -16,7 +16,6 @@ print: run
 	python3 parse_output.py
 
 # C++ RGF1 and RGF2
-
 run: compile_mpi
 	mpirun -np 2 ./test -m 1024 -b 64 -n 10 -s 0 -o 1
 
@@ -33,7 +32,6 @@ endif
 
 
 # CUDA RGF1 and RGF2 (only davinci)
-
 run_cuda1: compile_cuda1
 	./test_cuda -m 8 -b 2 -n 10 -s 0 -o 1
 
@@ -49,8 +47,17 @@ compile_cuda2:
 	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) -o test_cuda
 	rm *.o
 
-# Benchmarking (only C++)
+# Correctness test
+test_correctness: compile_correctness
+	mpirun -np 2 ./test -m 8 -b 2 -n 1 -s 0 -o 1
 
+compile_correctness:
+	$(MPI) -c $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) test_correct.cpp rgf1.cpp rgf2.cpp rgf2_cuda.cpp matrices_utils.cpp argparse.cpp
+	$(CUDA) -c $(CUDA_FLAGS) cuda_kernels.cu
+	$(MPI) *.o $(MPI_FLAGS_DAVINCI) $(MPI_CUDA_LINK_FLAGS_DAVINCI) $(CUDA_FLAGS) $(LIBLSB_library) -o test
+	rm *.o
+
+# Benchmarking (only C++)
 clean:
 	rm -fR main plot_out/* run.txt
 
