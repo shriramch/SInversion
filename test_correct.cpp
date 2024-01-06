@@ -85,34 +85,58 @@ int main(int argc, const char *argv[]) {
 
         Matrix inputMatrix =
             generateBandedDiagonalMatrix(MATRIX_SIZE, BLOCK_SIZE, IS_SYMMETRIC, 0);
+        
+        // if(processRank == 0) {
+        //     inputMatrix.printB();
+        // }
+        // MPI_Barrier(MPI_COMM_WORLD);
+        // if(processRank == 1) {
+        //     inputMatrix.printB();
+        // }
 
-        Matrix tempResult(
-            MATRIX_SIZE); // zero initialization, same shape as inputMatrix
-        tempResult.convertDenseToBlkTridiag(
-            BLOCK_SIZE); // G has same blockSize as inputMatrix
-        rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
-
-        if (processRank == 0) {
-            std::cout << "\n\nrgf2_CUDA RESULT\n\n";
-            tempResult.printB();
-        }
-
-        // temResult is just the output, it is reusable
-        // Check against the already implemented RGF2 on C++
-        rgf2sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
-
-        if (processRank == 0) {
-            std::cout << "\n\nrgf2 RESULT \n\n";
-            tempResult.printB();
-        }
-
+        Matrix tempResult_rgf1(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult_rgf1.convertDenseToBlkTridiag(BLOCK_SIZE); // G has same blockSize as inputMatrix
         // Check against the already implemented RGF1 on C++
-        rgf1sided(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
+        rgf1sided(inputMatrix, tempResult_rgf1, IS_SYMMETRIC, SAVE_OFF_DIAG);
 
+        Matrix tempResult_rgf2(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult_rgf2.convertDenseToBlkTridiag(BLOCK_SIZE); // G has same blockSize as inputMatrix
+        rgf2sided(inputMatrix, tempResult_rgf2, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+        Matrix tempResult_rgf2_cuda(MATRIX_SIZE); // zero initialization, same shape as inputMatrix
+        tempResult_rgf2_cuda.convertDenseToBlkTridiag(BLOCK_SIZE); // G has same blockSize as inputMatrix
+        rgf2sided_cuda(inputMatrix, tempResult_rgf2_cuda, IS_SYMMETRIC, SAVE_OFF_DIAG);
+
+        
         if (processRank == 0) {
-            std::cout << "\n\nrgf1 RESULT \n\n";
-            tempResult.printB();
+            // if (!tempResult_rgf1.compareDiagonals(tempResult_rgf2, false)) {
+            //     std::cout << "Error while running rgf2:" << std::endl;
+            //     return -1;
+            // }
+            // printf("rgf2 algorithm test passed!\n"); 
+            if (!tempResult_rgf2.compareDiagonals(tempResult_rgf2_cuda, false)) {
+                std::cout << "Error while running rgf2_cuda:" << std::endl;
+                return -1;
+            }
+            printf("rgf2_cuda algorithm test passed!\n"); 
         }
+
+
+        // if (processRank == 0) {
+        //     std::cout << "\n\nrgf1 RESULT \n\n";
+        //     tempResult_rgf1.printB();
+        // }
+
+        // if (processRank == 0) {
+        //     std::cout << "\n\nrgf2 RESULT \n\n";
+        //     tempResult_rgf2.printB();
+        // }
+
+        // if (processRank == 0) {
+        //     std::cout << "\n\nrgf2_CUDA RESULT\n\n";
+        //     tempResult_rgf2_cuda.printB();
+        // }
+
     }
     MPI_Finalize();
 }
