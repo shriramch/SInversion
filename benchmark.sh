@@ -1,14 +1,5 @@
 #!/bin/bash
 
-current_time=$(date +"%Y%m%d_%H%M%S")
-echo "Start time: ${current_time}"
-OUTPUT_FOLDER="output_logs_${current_time}"
-rm *.o
-mkdir -p $OUTPUT_FOLDER
-
-NUMRUNS=100                                                # num_of_runs
-SYMMETRIC=0                                                # matrix is symmtric or not
-
 benchmark () {
     for codeset in "${CODESETS[@]}"; do
         for m_value in "${M_VALUES[@]}"; do
@@ -43,20 +34,34 @@ benchmark () {
     done
 }
 
+current_time=$(date +"%Y%m%d_%H%M%S")
+echo "Start time: ${current_time}"
+OUTPUT_FOLDER="output_logs_${current_time}"
+mkdir -p $OUTPUT_FOLDER
+
+NUMRUNS=100                                                # num_of_runs
+SYMMETRIC=0                                                # matrix is symmtric or not
+
 M_VALUES=(1024 2048 4096 8192 16384 32768 65536 131072)    # matrix size 
 B_VALUES=(8 16 32 64 128)                                  # block size 
 CODESETS=("rgf1_cuda" "rgf2_cuda" "rgf1" "rgf2")           # codesets
+OUTPUT_FOLDER="output_logs_${current_time}/set1"
+mkdir -p $OUTPUT_FOLDER
 
 echo "*******************************"
 echo "Round 1 Benchmark"
+rm *.o
 benchmark
 
 M_VALUES=(16384 32768)                                     # matrix size 
-B_VALUES=(32 128 512 2048 8192)                            # block size 
+B_VALUES=(32 128 512 2048 8192)                            # block size
 CODESETS=("rgf1_cuda" "rgf2_cuda")                         # codesets
+OUTPUT_FOLDER="output_logs_${current_time}/set2"
+mkdir -p $OUTPUT_FOLDER
 
 echo "*******************************"
 echo "Round 2 Benchmark"
+rm *.o
 benchmark
 
 rm test

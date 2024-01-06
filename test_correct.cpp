@@ -1,6 +1,5 @@
 #include "argparse.h"
 #include "rgf1.hpp"
-#include "rgf1_cuda.hpp"
 #include "rgf2.hpp"
 #include "rgf2_cuda.hpp"
 #include <cublas_v2.h>
@@ -94,13 +93,6 @@ int main(int argc, const char *argv[]) {
             MATRIX_SIZE); // zero initialization, same shape as inputMatrix
         tempResult.convertDenseToBlkTridiag(
             BLOCK_SIZE); // G has same blockSize as inputMatrix
-
-        rgf1sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);
-
-        if (processRank == 0) {
-            std::cout << "\n\nRGF1_CUDA RESULT\n\n";
-            tempResult.printB();
-        }
 
         // Check against the CUDA RGF2
         rgf2sided_cuda(inputMatrix, tempResult, IS_SYMMETRIC, SAVE_OFF_DIAG);

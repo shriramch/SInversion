@@ -17,3 +17,4 @@ figures*
 steps_to_libraries.md
 plot_rgf.py
 create_plot.py
+*.o
